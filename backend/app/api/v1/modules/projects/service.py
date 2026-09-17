@@ -112,6 +112,7 @@ async def get_project_detail(
             {claim.id for claim in claims},
         )
         verification_source = await _verification_source(session, verification)
+        anomalies = await _derive_project_anomalies(session, project_id)
     except HTTPException:
         raise
     except Exception as error:
@@ -151,6 +152,7 @@ async def get_project_detail(
             if verification is not None
             else None
         ),
+        anomalies=anomalies,
         evidence=[
             _claim_evidence_response(claim, evidence_by_claim) for claim in claims
         ],
@@ -220,8 +222,16 @@ async def get_project_anomalies(
     project_id: UUID,
 ) -> list[ProjectAnomalyResponse]:
     """Derive review flags only from sourced progress and financial records."""
+    await _project_or_404(session, project_id)
+    return await _derive_project_anomalies(session, project_id)
+
+
+async def _derive_project_anomalies(
+    session: AsyncSession,
+    project_id: UUID,
+) -> list[ProjectAnomalyResponse]:
+    """Derive review flags from sourced progress and financial records."""
     try:
-        await _project_or_404(session, project_id)
         records = await finance_repository.list_for_project(session, project_id)
         progress = await repository.get_latest_progress(session, project_id)
         if progress is None:

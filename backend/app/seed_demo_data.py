@@ -75,8 +75,14 @@ def _id(key: str) -> UUID:
 
 async def _add_if_missing(session: AsyncSession, record: SQLModel) -> bool:
     """Stage a fixed-ID record only when it is not already persisted."""
-    record_id = cast(UUID, record.id)
     record_type: type[SQLModel] = type(record)
+    if isinstance(record, ClaimSource):
+        record_id: UUID | tuple[UUID, UUID] = (
+            record.claim_id,
+            record.source_record_id,
+        )
+    else:
+        record_id = cast(UUID, record.id)
     if await session.get(record_type, record_id) is not None:
         return False
     session.add(record)
@@ -122,6 +128,15 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "Kitui Central Demo",
             "town",
             "Kitui Town Demo Ward",
+        ),
+        (
+            "nairobi",
+            "Nairobi City",
+            "KE-DEMO-NRB",
+            "westlands",
+            "Westlands Demo",
+            "kangemi",
+            "Kangemi Demo Ward",
         ),
     ]
     created = 0
@@ -171,7 +186,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
         {
             "key": "nyando-road",
             "name": "Nyando–Kochieng Access Road Rehabilitation (Demo)",
-            "description": "Fictional demonstration rehabilitation of a local access road.",
+            "description": (
+                "Fictional demonstration rehabilitation of a local access road."
+            ),
             "type": ProjectType.ROAD,
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "kobura",
@@ -192,7 +209,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
         {
             "key": "muhoroni-clinic",
             "name": "Muhoroni Community Clinic Improvement (Demo)",
-            "description": "Fictional demonstration upgrade of a community clinic wing.",
+            "description": (
+                "Fictional demonstration upgrade of a community clinic wing."
+            ),
             "type": ProjectType.HEALTH,
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "kobura",
@@ -234,7 +253,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
         {
             "key": "kitui-classrooms",
             "name": "Kitui Day School Classroom Improvement (Demo)",
-            "description": "Fictional demonstration construction of two classroom blocks.",
+            "description": (
+                "Fictional demonstration construction of two classroom blocks."
+            ),
             "type": ProjectType.EDUCATION,
             "status": ProjectStatus.PLANNED,
             "ward": "town",
@@ -242,7 +263,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "planned_completion": date(2027, 6, 30),
             "actual_start": None,
             "expected_completion": date(2027, 6, 30),
-            "contractor": "Eastern Counties Education Build Ltd (fictional demo contractor)",
+            "contractor": (
+                "Eastern Counties Education Build Ltd (fictional demo contractor)"
+            ),
             "award": "DEMO-KTI-EDU-004",
             "allocated": Decimal("9000000.00"),
             "committed": Decimal("4000000.00"),
@@ -251,6 +274,30 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "reported": Decimal("2500000.00"),
             "progress": Decimal("25.00"),
             "progress_date": date(2026, 8, 20),
+        },
+        {
+            "key": "kangemi-market",
+            "name": "Kangemi Market Access Improvement (Demo)",
+            "description": (
+                "Fictional demonstration improvement of market access paths and "
+                "drainage."
+            ),
+            "type": ProjectType.ROAD,
+            "status": ProjectStatus.PLANNED,
+            "ward": "kangemi",
+            "planned_start": date(2026, 10, 15),
+            "planned_completion": date(2027, 5, 31),
+            "actual_start": None,
+            "expected_completion": date(2027, 5, 31),
+            "contractor": "Nairobi Community Works Ltd (fictional demo contractor)",
+            "award": "DEMO-NRB-MARKET-005",
+            "allocated": Decimal("11000000.00"),
+            "committed": Decimal("5000000.00"),
+            "contracted": Decimal("9500000.00"),
+            "spent": Decimal("1000000.00"),
+            "reported": Decimal("1000000.00"),
+            "progress": Decimal("10.00"),
+            "progress_date": date(2026, 8, 28),
         },
     ]
 
@@ -360,7 +407,10 @@ async def seed_demo_data(session: AsyncSession) -> int:
             (
                 "reported_progress_percentage",
                 ClaimKind.PROGRESS,
-                f"{item['progress']:.2f}% reported progress as of {item['progress_date']}",
+                (
+                    f"{item['progress']:.2f}% reported progress as of "
+                    f"{item['progress_date']}"
+                ),
                 item["progress"],
                 None,
             ),

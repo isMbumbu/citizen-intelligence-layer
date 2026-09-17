@@ -22,7 +22,7 @@ or derived data for verified evidence.
 
 ## Acceptance criteria
 
-- A deterministic, idempotent seed command creates four fictional Kenyan demo
+- A deterministic, idempotent seed command creates five fictional Kenyan demo
   projects, their locations, financial records, contractor details, claims,
   sources, and unverified verification records.
 - `GET /api/v1/projects` paginates and filters by county, ward, project type,

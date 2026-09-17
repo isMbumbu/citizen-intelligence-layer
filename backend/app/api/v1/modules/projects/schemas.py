@@ -114,6 +114,18 @@ class TimelineResponse(BaseModel):
     expected_completion_date: date | None
 
 
+class ProjectAnomalyResponse(BaseModel):
+    """A deterministic review flag, not a verification or misconduct finding."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    reported_progress_percentage: Decimal = Field(ge=0, le=100)
+    spent_budget_percentage: Decimal = Field(ge=0, le=100)
+    supporting_claims: list[ClaimReferenceResponse]
+
+
 class VerificationResponse(BaseModel):
     status: VerificationStatus
     verification_date: datetime | None
@@ -139,16 +151,5 @@ class ProjectDetailResponse(BaseModel):
     timeline: TimelineResponse
     last_verified_at: datetime | None
     verification: VerificationResponse | None
+    anomalies: list[ProjectAnomalyResponse]
     evidence: list[ClaimEvidenceResponse]
-
-
-class ProjectAnomalyResponse(BaseModel):
-    """A deterministic review flag, not a verification or misconduct finding."""
-
-    type: str
-    status: str
-    message: str
-    requires_verification: bool
-    reported_progress_percentage: Decimal = Field(ge=0, le=100)
-    spent_budget_percentage: Decimal = Field(ge=0, le=100)
-    supporting_claims: list[ClaimReferenceResponse]
