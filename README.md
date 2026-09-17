@@ -11,7 +11,7 @@ people can understand, verify, and act on.
 ```text
 .
 ├── backend/       FastAPI, SQLModel, Celery, and database migrations
-├── frontend/      Reserved for the future web application
+├── frontend/      Next.js 16 (React 19, TypeScript, Tailwind CSS) web app
 ├── principles/    Product and engineering guardrails
 ├── specs/         Domain and API specifications
 └── stories/       Implementation stories and acceptance criteria
@@ -38,6 +38,7 @@ API, migrations, and a Celery worker. The database extensions are created by
 the first Alembic migration; `/health/ready` checks PostgreSQL and Redis.
 
 For backend-only development, follow [backend/README.md](backend/README.md).
+For frontend-only development, follow [frontend/README.md](frontend/README.md).
 
 ## Development workflow
 
@@ -46,5 +47,6 @@ and story. Define acceptance criteria, implement the smallest scoped change,
 then run formatting, linting, type checking, and tests. See [AGENTS.md](AGENTS.md)
 for the working agreement.
 
-The frontend directory is intentionally a placeholder; no frontend application
-has been selected or implemented yet.
+The frontend is a Next.js application that talks to the API through a same-origin
+rewrite; see [frontend/README.md](frontend/README.md) for the request flow and
+environment configuration.
