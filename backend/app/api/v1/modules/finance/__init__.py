@@ -1,0 +1,1 @@
+"""Finance feature module placeholder."""
