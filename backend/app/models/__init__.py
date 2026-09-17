@@ -1,5 +1,6 @@
 """SQLModel persistence models registered for Alembic metadata."""
 
+from app.models.citizen_comments import CitizenComment, CommentReport
 from app.models.service_state import ServiceState
 from app.models.vertical_slice import (
     CitizenIssueReport,
@@ -22,6 +23,8 @@ from app.models.vertical_slice import (
 
 __all__ = [
     "CitizenIssueReport",
+    "CitizenComment",
+    "CommentReport",
     "Claim",
     "ClaimSource",
     "Contractor",
