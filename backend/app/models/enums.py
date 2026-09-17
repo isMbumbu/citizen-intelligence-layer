@@ -74,3 +74,29 @@ class CommentReportReason(StrEnum):
 
 class CommentReportStatus(StrEnum):
     SUBMITTED = "SUBMITTED"
+
+
+class EvidenceSourceClass(StrEnum):
+    CITIZEN_SUBMITTED = "CITIZEN_SUBMITTED"
+
+
+class EvidenceModerationState(StrEnum):
+    PENDING = "PENDING"
+    FLAGGED = "FLAGGED"
+    HIDDEN = "HIDDEN"
+    REMOVED = "REMOVED"
+
+
+class EvidenceProcessingState(StrEnum):
+    RAW = "RAW"
+    VALIDATION_PASSED = "VALIDATION_PASSED"
+    EXTRACTED = "EXTRACTED"
+    INDEXED = "INDEXED"
+    FAILED = "FAILED"
+    HIDDEN = "HIDDEN"
+
+
+class EvidenceVisibility(StrEnum):
+    PRIVATE = "PRIVATE"
+    PENDING = "PENDING"
+    PUBLIC = "PUBLIC"
