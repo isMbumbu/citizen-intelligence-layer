@@ -1,15 +1,23 @@
-"""Application functions for citizen evidence metadata."""
+"""Application functions for secure citizen evidence uploads."""
 
+import asyncio
+import hashlib
+import re
+import tempfile
+from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
+from PIL import Image, UnidentifiedImageError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.comments import repository as comments_repository
 from app.api.v1.modules.evidence import repository
 from app.api.v1.modules.evidence.schemas import EvidenceCreateRequest, EvidenceResponse
 from app.api.v1.modules.projects import repository as projects_repository
+from app.core.config import settings
 from app.core.logging import logger
+from app.core.storage import EvidenceStorage, get_evidence_storage
 from app.models.enums import (
     EvidenceModerationState,
     EvidenceProcessingState,
@@ -42,6 +50,51 @@ async def create_project_evidence(
         payload.comment_id,
     )
     return response
+
+
+async def upload_project_evidence(
+    session: AsyncSession,
+    project_id: UUID,
+    uploader_id: UUID,
+    comment_id: UUID | None,
+    upload: UploadFile,
+) -> EvidenceResponse:
+    """Validate, store, and persist evidence attached to a project."""
+    await _require_project(session, project_id)
+    if comment_id is not None:
+        await _require_comment_for_project(session, comment_id, project_id)
+    return await _upload(
+        session,
+        project_id=project_id,
+        report_id=None,
+        comment_id=comment_id,
+        uploader_id=uploader_id,
+        upload=upload,
+    )
+
+
+async def upload_comment_evidence(
+    session: AsyncSession,
+    comment_id: UUID,
+    uploader_id: UUID,
+    upload: UploadFile,
+) -> EvidenceResponse:
+    """Validate, store, and persist evidence attached to a comment."""
+    comment = await comments_repository.get_comment(session, comment_id)
+    if comment is None:
+        logger.info("Rejected evidence upload for unknown comment id=%s", comment_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Comment not found.",
+        )
+    return await _upload(
+        session,
+        project_id=comment.project_id,
+        report_id=None,
+        comment_id=comment_id,
+        uploader_id=uploader_id,
+        upload=upload,
+    )
 
 
 async def create_report_evidence(
@@ -78,6 +131,63 @@ async def create_report_evidence(
         report_id,
     )
     return response
+
+
+async def upload_report_evidence(
+    session: AsyncSession,
+    project_id: UUID,
+    report_id: UUID,
+    uploader_id: UUID,
+    comment_id: UUID | None,
+    upload: UploadFile,
+) -> EvidenceResponse:
+    """Validate, store, and persist evidence attached to a citizen report."""
+    await _require_project(session, project_id)
+    report = await session.get(CitizenIssueReport, report_id)
+    if report is None or report.project_id != project_id:
+        logger.info(
+            "Rejected evidence upload for report id=%s project_id=%s",
+            report_id,
+            project_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen report not found for project.",
+        )
+    if comment_id is not None:
+        await _require_comment_for_project(session, comment_id, project_id)
+    return await _upload(
+        session,
+        project_id=project_id,
+        report_id=report_id,
+        comment_id=comment_id,
+        uploader_id=uploader_id,
+        upload=upload,
+    )
+
+
+async def upload_report_evidence_by_id(
+    session: AsyncSession,
+    report_id: UUID,
+    uploader_id: UUID,
+    upload: UploadFile,
+) -> EvidenceResponse:
+    """Validate, store, and persist evidence attached to a citizen report."""
+    report = await session.get(CitizenIssueReport, report_id)
+    if report is None:
+        logger.info("Rejected evidence upload for unknown report id=%s", report_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Citizen report not found.",
+        )
+    return await _upload(
+        session,
+        project_id=report.project_id,
+        report_id=report_id,
+        comment_id=None,
+        uploader_id=uploader_id,
+        upload=upload,
+    )
 
 
 async def get_evidence(
@@ -133,6 +243,187 @@ async def _create(
             detail="Unable to create evidence metadata.",
         ) from error
     return _response(evidence)
+
+
+async def _upload(
+    session: AsyncSession,
+    *,
+    project_id: UUID,
+    report_id: UUID | None,
+    comment_id: UUID | None,
+    uploader_id: UUID,
+    upload: UploadFile,
+    storage: EvidenceStorage | None = None,
+) -> EvidenceResponse:
+    temporary_path: Path | None = None
+    storage_key: str | None = None
+    try:
+        (
+            temporary_path,
+            original_filename,
+            mime_type,
+            file_size,
+            checksum,
+        ) = await _validate_upload(upload)
+        extension = _extension_for_mime(mime_type)
+        storage_key = f"evidence/{uuid4()}.{extension}"
+        selected_storage = storage or get_evidence_storage()
+        await selected_storage.store(temporary_path, storage_key)
+        evidence = await repository.create(
+            session,
+            EvidenceRecord(
+                project_id=project_id,
+                comment_id=comment_id,
+                report_id=report_id,
+                uploader_id=uploader_id,
+                original_filename=original_filename,
+                mime_type=mime_type,
+                file_size_bytes=file_size,
+                checksum_sha256=checksum,
+                storage_key=storage_key,
+            ),
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        await session.rollback()
+        if storage_key is not None:
+            try:
+                await (storage or get_evidence_storage()).delete(storage_key)
+            except Exception:
+                logger.exception("Unable to clean up evidence storage key")
+        logger.exception("Unable to persist evidence upload project_id=%s", project_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to store evidence upload.",
+        ) from error
+    finally:
+        if temporary_path is not None:
+            try:
+                await asyncio.to_thread(temporary_path.unlink)
+            except FileNotFoundError:
+                pass
+    logger.info("Stored evidence upload id=%s project_id=%s", evidence.id, project_id)
+    return _response(evidence)
+
+
+async def _validate_upload(
+    upload: UploadFile,
+) -> tuple[Path, str, str, int, str]:
+    """Stream an upload to a temporary file and validate its untrusted content."""
+    original_filename = _sanitize_filename(upload.filename)
+    extension = Path(original_filename).suffix.lower()
+    if extension not in {".gif", ".jpeg", ".jpg", ".pdf", ".png", ".webp"}:
+        raise _upload_error("Unsupported evidence file extension.")
+
+    temporary_file = tempfile.NamedTemporaryFile(
+        prefix="citizen-evidence-",
+        suffix=".upload",
+        delete=False,
+    )
+    temporary_path = Path(temporary_file.name)
+    digest = hashlib.sha256()
+    file_size = 0
+    try:
+        with temporary_file:
+            while True:
+                chunk = await upload.read(1024 * 1024)
+                if not chunk:
+                    break
+                file_size += len(chunk)
+                if file_size > settings.evidence_max_size_bytes:
+                    raise _upload_error("Evidence file exceeds the maximum size.")
+                digest.update(chunk)
+                await asyncio.to_thread(temporary_file.write, chunk)
+        detected_mime = await asyncio.to_thread(
+            _detect_and_validate_content, temporary_path
+        )
+        if detected_mime not in settings.evidence_allowed_mime_types:
+            raise _upload_error("Evidence file type is not allowed.")
+        if upload.content_type != detected_mime:
+            raise _upload_error("Evidence MIME type does not match its content.")
+        if f".{_extension_for_mime(detected_mime)}" != extension:
+            raise _upload_error("Evidence filename does not match its content.")
+        return (
+            temporary_path,
+            original_filename,
+            detected_mime,
+            file_size,
+            digest.hexdigest(),
+        )
+    except HTTPException:
+        try:
+            await asyncio.to_thread(temporary_path.unlink)
+        except FileNotFoundError:
+            pass
+        raise
+    except Exception as error:
+        try:
+            await asyncio.to_thread(temporary_path.unlink)
+        except FileNotFoundError:
+            pass
+        logger.info(
+            "Rejected malformed evidence upload error_type=%s", type(error).__name__
+        )
+        raise _upload_error("Evidence file is malformed or unsafe.") from error
+
+
+def _detect_and_validate_content(path: Path) -> str:
+    """Return a trusted MIME type after checking the file signature/content."""
+    content = path.read_bytes()
+    if content.startswith(b"%PDF-") and b"%%EOF" in content[-1024:]:
+        if any(
+            marker in content
+            for marker in (b"/JavaScript", b"/JS", b"/Launch", b"/EmbeddedFile")
+        ):
+            raise ValueError("PDF contains active or embedded content.")
+        return "application/pdf"
+    try:
+        with Image.open(path) as image:
+            image.verify()
+            detected_format = (image.format or "").upper()
+    except (OSError, UnidentifiedImageError) as error:
+        raise ValueError("Unsupported or malformed evidence content.") from error
+    mime_by_format = {
+        "GIF": "image/gif",
+        "JPEG": "image/jpeg",
+        "PNG": "image/png",
+        "WEBP": "image/webp",
+    }
+    try:
+        return mime_by_format[detected_format]
+    except KeyError as error:
+        raise ValueError("Unsupported image format.") from error
+
+
+def _sanitize_filename(filename: str | None) -> str:
+    """Keep a safe display filename while never using it as a storage path."""
+    raw_filename = (filename or "evidence").replace("\\", "/")
+    basename = Path(raw_filename).name
+    sanitized = re.sub(r"[^A-Za-z0-9._-]", "_", basename).strip(".")
+    if not sanitized or sanitized in {".", ".."}:
+        return "evidence"
+    return sanitized[:255]
+
+
+def _extension_for_mime(mime_type: str) -> str:
+    extensions = {
+        "application/pdf": "pdf",
+        "image/gif": "gif",
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }
+    try:
+        return extensions[mime_type]
+    except KeyError as error:
+        raise _upload_error("Evidence file type is not allowed.") from error
+
+
+def _upload_error(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail
+    )
 
 
 async def _require_project(session: AsyncSession, project_id: UUID) -> None:
