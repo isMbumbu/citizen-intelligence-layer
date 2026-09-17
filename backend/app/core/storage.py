@@ -16,6 +16,8 @@ class EvidenceStorage(Protocol):
 
     async def delete(self, storage_key: str) -> None: ...
 
+    async def read(self, storage_key: str, max_bytes: int) -> bytes: ...
+
 
 class LocalEvidenceStorage:
     """Store evidence below one configured, non-executable local directory."""
@@ -35,6 +37,19 @@ class LocalEvidenceStorage:
             await asyncio.to_thread(destination.unlink)
         except FileNotFoundError:
             return
+
+    async def read(self, storage_key: str, max_bytes: int) -> bytes:
+        """Read a bounded object for internal processing only."""
+        destination = self._path_for(storage_key)
+
+        def read_bounded() -> bytes:
+            with destination.open("rb") as file:
+                content = file.read(max_bytes + 1)
+            if len(content) > max_bytes:
+                raise ValueError("Evidence object exceeds processing limit.")
+            return content
+
+        return await asyncio.to_thread(read_bounded)
 
     def _path_for(self, storage_key: str) -> Path:
         relative = PurePosixPath(storage_key)

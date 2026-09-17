@@ -7,7 +7,10 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.evidence import service
-from app.api.v1.modules.evidence.schemas import EvidenceResponse
+from app.api.v1.modules.evidence.schemas import (
+    EvidenceProcessingResponse,
+    EvidenceResponse,
+)
 from app.core.database import get_session
 
 router = APIRouter(tags=["evidence"])
@@ -90,3 +93,15 @@ async def get_evidence(
 ) -> EvidenceResponse:
     """Return evidence metadata without retrieving uploaded file content."""
     return await service.get_evidence(session, evidence_id)
+
+
+@router.get(
+    "/evidence/{evidence_id}/processing",
+    response_model=EvidenceProcessingResponse,
+)
+async def get_evidence_processing(
+    evidence_id: UUID,
+    session: SessionDep,
+) -> EvidenceProcessingResponse:
+    """Return processing state, safe history, and derived-artifact lineage."""
+    return await service.get_processing(session, evidence_id)

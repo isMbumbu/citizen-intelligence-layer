@@ -13,7 +13,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.comments import repository as comments_repository
 from app.api.v1.modules.evidence import repository
-from app.api.v1.modules.evidence.schemas import EvidenceCreateRequest, EvidenceResponse
+from app.api.v1.modules.evidence.processor import EvidenceProcessor
+from app.api.v1.modules.evidence.schemas import (
+    EvidenceCreateRequest,
+    EvidenceDerivedArtifactResponse,
+    EvidenceProcessingEventResponse,
+    EvidenceProcessingResponse,
+    EvidenceResponse,
+)
 from app.api.v1.modules.projects import repository as projects_repository
 from app.core.config import settings
 from app.core.logging import logger
@@ -24,7 +31,11 @@ from app.models.enums import (
     EvidenceSourceClass,
     EvidenceVisibility,
 )
-from app.models.evidence import EvidenceRecord
+from app.models.evidence import (
+    EvidenceDerivedArtifact,
+    EvidenceProcessingEvent,
+    EvidenceRecord,
+)
 from app.models.vertical_slice import CitizenIssueReport
 
 
@@ -209,6 +220,195 @@ async def get_evidence(
         evidence.processing_state,
     )
     return _response(evidence)
+
+
+async def get_processing(
+    session: AsyncSession,
+    evidence_id: UUID,
+) -> EvidenceProcessingResponse:
+    """Return safe processing history and derived-artifact lineage."""
+    evidence = await repository.get(session, evidence_id)
+    if evidence is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Evidence not found.",
+        )
+    try:
+        events = await repository.list_processing_events(session, evidence_id)
+        artifacts = await repository.list_derived_artifacts(session, evidence_id)
+    except Exception as error:
+        logger.exception("Unable to retrieve evidence processing metadata")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve evidence processing metadata.",
+        ) from error
+    return EvidenceProcessingResponse(
+        evidence_id=evidence.id,
+        processing_state=EvidenceProcessingState(evidence.processing_state),
+        events=[_event_response(event) for event in events],
+        derived_artifacts=[_artifact_response(artifact) for artifact in artifacts],
+    )
+
+
+async def process_evidence(
+    session: AsyncSession,
+    evidence_id: UUID,
+    *,
+    task_id: str | None = None,
+    storage: EvidenceStorage | None = None,
+) -> EvidenceProcessingState:
+    """Process one evidence record using service-owned lifecycle rules."""
+    evidence = await repository.get(session, evidence_id)
+    if evidence is None:
+        raise ValueError("Evidence record not found.")
+    if evidence.is_deleted:
+        raise ValueError("Evidence is not eligible for processing.")
+    if evidence.processing_state == EvidenceProcessingState.EXTRACTED.value:
+        logger.info("Evidence already processed evidence_id=%s", evidence_id)
+        return EvidenceProcessingState.EXTRACTED
+    if evidence.processing_state in {
+        EvidenceProcessingState.FAILED.value,
+        EvidenceProcessingState.HIDDEN.value,
+        EvidenceProcessingState.INDEXED.value,
+    }:
+        raise ValueError("Evidence is not eligible for processing.")
+
+    try:
+        if evidence.processing_state == EvidenceProcessingState.RAW.value:
+            await transition_processing_state(
+                session,
+                evidence,
+                EvidenceProcessingState.VALIDATION_PASSED,
+                event_type="VALIDATION",
+                task_id=task_id,
+            )
+        if evidence.processing_state == EvidenceProcessingState.VALIDATION_PASSED.value:
+            processor = EvidenceProcessor(storage or get_evidence_storage())
+            artifact_hash = await processor.process(evidence)
+            event = await transition_processing_state(
+                session,
+                evidence,
+                EvidenceProcessingState.EXTRACTED,
+                event_type="EXTRACTION",
+                task_id=task_id,
+            )
+            existing_artifact = await repository.get_derived_artifact(
+                session, evidence.id, "EXTRACTED"
+            )
+            if existing_artifact is None:
+                await repository.create_derived_artifact(
+                    session,
+                    EvidenceDerivedArtifact(
+                        evidence_id=evidence.id,
+                        artifact_type="EXTRACTED",
+                        content_hash=artifact_hash,
+                        processing_event_id=event.id,
+                    ),
+                )
+        await session.commit()
+    except Exception as error:
+        await session.rollback()
+        logger.exception("Evidence processing failed evidence_id=%s", evidence_id)
+        await _record_failure(session, evidence, task_id=task_id, error=error)
+        raise
+    logger.info("Evidence processing completed evidence_id=%s", evidence_id)
+    return EvidenceProcessingState(evidence.processing_state)
+
+
+async def transition_processing_state(
+    session: AsyncSession,
+    evidence: EvidenceRecord,
+    to_state: EvidenceProcessingState,
+    *,
+    event_type: str,
+    task_id: str | None = None,
+) -> EvidenceProcessingEvent:
+    """Apply one valid transition and append its audit event."""
+    current = EvidenceProcessingState(evidence.processing_state)
+    allowed = {
+        EvidenceProcessingState.RAW: {EvidenceProcessingState.VALIDATION_PASSED},
+        EvidenceProcessingState.VALIDATION_PASSED: {EvidenceProcessingState.EXTRACTED},
+        EvidenceProcessingState.EXTRACTED: {EvidenceProcessingState.INDEXED},
+    }
+    if to_state not in allowed.get(current, set()):
+        raise ValueError(
+            f"Invalid evidence processing transition: {current} -> {to_state}"
+        )
+    event = EvidenceProcessingEvent(
+        evidence_id=evidence.id,
+        from_state=current.value,
+        to_state=to_state.value,
+        event_type=event_type,
+        task_id=task_id,
+    )
+    evidence.processing_state = to_state.value
+    await repository.create_processing_event(session, event)
+    logger.info(
+        "Evidence processing state changed evidence_id=%s state=%s",
+        evidence.id,
+        to_state,
+    )
+    return event
+
+
+async def _record_failure(
+    session: AsyncSession,
+    evidence: EvidenceRecord,
+    *,
+    task_id: str | None,
+    error: Exception,
+) -> None:
+    """Persist a bounded failure event without exposing exception details."""
+    from_state = evidence.processing_state
+    evidence.processing_state = EvidenceProcessingState.FAILED.value
+    await repository.create_processing_event(
+        session,
+        EvidenceProcessingEvent(
+            evidence_id=evidence.id,
+            from_state=from_state,
+            to_state=EvidenceProcessingState.FAILED.value,
+            event_type="PROCESSING_FAILED",
+            error_code="PROCESSING_FAILED",
+            error_message="Evidence processing could not be completed.",
+            task_id=task_id,
+        ),
+    )
+    await session.commit()
+    logger.warning(
+        "Evidence marked failed evidence_id=%s error_type=%s",
+        evidence.id,
+        type(error).__name__,
+    )
+
+
+def _event_response(event: EvidenceProcessingEvent) -> EvidenceProcessingEventResponse:
+    """Convert an internal processing event to its safe API contract."""
+    return EvidenceProcessingEventResponse(
+        id=event.id,
+        from_state=(
+            EvidenceProcessingState(event.from_state) if event.from_state else None
+        ),
+        to_state=EvidenceProcessingState(event.to_state),
+        event_type=event.event_type,
+        error_code=event.error_code,
+        error_message=event.error_message,
+        created_at=event.created_at,
+    )
+
+
+def _artifact_response(
+    artifact: EvidenceDerivedArtifact,
+) -> EvidenceDerivedArtifactResponse:
+    """Convert internal artifact lineage to its safe API contract."""
+    return EvidenceDerivedArtifactResponse(
+        id=artifact.id,
+        evidence_id=artifact.evidence_id,
+        artifact_type=artifact.artifact_type,
+        content_hash=artifact.content_hash,
+        source_class=EvidenceSourceClass(artifact.source_class),
+        trust_classification=artifact.trust_classification,
+        created_at=artifact.created_at,
+    )
 
 
 async def _create(
