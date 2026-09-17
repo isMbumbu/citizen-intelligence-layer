@@ -1,0 +1,1 @@
+"""Verification feature module placeholder."""

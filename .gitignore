@@ -1,0 +1,21 @@
+.DS_Store
+.env
+backend/.env
+
+.venv/
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Local compose volumes and Celery state
+postgres_data/
+redis_data/
+rabbitmq_data/
+celerybeat-schedule

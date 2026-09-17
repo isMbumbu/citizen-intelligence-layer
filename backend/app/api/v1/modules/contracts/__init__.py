@@ -1,0 +1,1 @@
+"""Contracts feature module placeholder."""
