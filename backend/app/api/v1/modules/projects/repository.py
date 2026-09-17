@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.enums import ProjectStatus, ProjectType
@@ -70,7 +70,10 @@ async def get_latest_progress(
     result = await session.exec(
         select(ProjectProgress)
         .where(ProjectProgress.project_id == project_id)
-        .order_by(ProjectProgress.reported_at.desc(), ProjectProgress.created_at.desc())
+        .order_by(
+            col(ProjectProgress.reported_at).desc(),
+            col(ProjectProgress.created_at).desc(),
+        )
         .limit(1)
     )
     return result.first()

@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.vertical_slice import Contractor, ProjectContract
@@ -16,7 +16,7 @@ async def get_current_for_project(
     result = await session.exec(
         select(ProjectContract)
         .where(ProjectContract.project_id == project_id)
-        .order_by(ProjectContract.created_at.desc())
+        .order_by(col(ProjectContract.created_at).desc())
         .limit(1)
     )
     contract = result.first()

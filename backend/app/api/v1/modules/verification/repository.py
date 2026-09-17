@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.vertical_slice import ProjectVerification
@@ -16,7 +16,7 @@ async def get_latest_for_project(
     result = await session.exec(
         select(ProjectVerification)
         .where(ProjectVerification.project_id == project_id)
-        .order_by(ProjectVerification.recorded_at.desc())
+        .order_by(col(ProjectVerification.recorded_at).desc())
         .limit(1)
     )
     return result.first()

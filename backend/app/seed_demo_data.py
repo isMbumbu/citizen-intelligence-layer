@@ -7,7 +7,7 @@ The records are illustrative and must never be represented as government data.
 import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import TypedDict, cast
+from typing import Protocol, TypedDict, cast
 from uuid import UUID, uuid5
 
 from sqlmodel import SQLModel
@@ -68,6 +68,12 @@ class ProjectSeed(TypedDict):
     progress_date: date
 
 
+class _SeedRecordWithId(Protocol):
+    """Structural type for seeded SQLModel records with UUID primary keys."""
+
+    id: UUID
+
+
 def _id(key: str) -> UUID:
     """Create stable identifiers so repeated seed runs never duplicate records."""
     return uuid5(_DEMO_NAMESPACE, key)
@@ -82,7 +88,7 @@ async def _add_if_missing(session: AsyncSession, record: SQLModel) -> bool:
             record.source_record_id,
         )
     else:
-        record_id = cast(UUID, record.id)
+        record_id = cast(_SeedRecordWithId, record).id
     if await session.get(record_type, record_id) is not None:
         return False
     session.add(record)

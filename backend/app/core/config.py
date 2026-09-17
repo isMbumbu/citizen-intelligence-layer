@@ -18,9 +18,7 @@ class Settings(BaseSettings):
     project_name: str = "Citizen Intelligence Layer API"
     api_v1_prefix: str = "/api/v1"
     debug: bool = True
-    environment: Literal["development", "test", "staging", "production"] = (
-        "development"
-    )
+    environment: Literal["development", "test", "staging", "production"] = "development"
     log_level: str = "INFO"
     trusted_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
     cors_allowed_origins: list[str] = []

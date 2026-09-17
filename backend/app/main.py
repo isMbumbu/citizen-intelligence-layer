@@ -1,14 +1,11 @@
 """FastAPI application entry point."""
 
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from redis.exceptions import RedisError
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -19,12 +16,13 @@ from app.core.config import settings
 from app.core.database import close_database, get_session
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, logger
-from app.core.redis import close_redis, redis_client
+from app.core.readiness import ReadinessReport, get_readiness_report
+from app.core.redis import close_redis
 from app.core.security import SecurityHeadersMiddleware
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Set up process concerns and release database resources on shutdown."""
     configure_logging()
     logger.info("Application started", extra={"event": "application_started"})
@@ -90,18 +88,15 @@ async def health_check() -> dict[str, str]:
 )
 async def readiness_check(
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> dict[str, str]:
+) -> ReadinessReport:
     """Verify the API can reach PostgreSQL and Redis asynchronously."""
-    try:
-        await session.execute(text("SELECT 1"))
-        await redis_client.ping()
-    except (RedisError, SQLAlchemyError) as exc:
-        logger.warning("Infrastructure readiness failed", exc_info=exc)
+    report = await get_readiness_report(session)
+    if report.status == "not_ready":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Required infrastructure is unavailable.",
-        ) from exc
-    return {"status": "ready"}
+            detail=report.model_dump(mode="json"),
+        )
+    return report
 
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)

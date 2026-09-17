@@ -3,7 +3,7 @@
 from collections import defaultdict
 from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.vertical_slice import Claim, ClaimSource, Source, SourceRecord
@@ -17,7 +17,7 @@ async def list_claims_for_project(
     result = await session.exec(
         select(Claim)
         .where(Claim.project_id == project_id)
-        .order_by(Claim.field_name, Claim.created_at)
+        .order_by(col(Claim.field_name), col(Claim.created_at))
     )
     return list(result.all())
 
@@ -31,7 +31,7 @@ async def evidence_for_claims(
         return {}
 
     links_result = await session.exec(
-        select(ClaimSource).where(ClaimSource.claim_id.in_(claim_ids))
+        select(ClaimSource).where(col(ClaimSource.claim_id).in_(claim_ids))
     )
     links = list(links_result.all())
     record_ids = {link.source_record_id for link in links}
@@ -39,11 +39,13 @@ async def evidence_for_claims(
         return {claim_id: [] for claim_id in claim_ids}
 
     records_result = await session.exec(
-        select(SourceRecord).where(SourceRecord.id.in_(record_ids))
+        select(SourceRecord).where(col(SourceRecord.id).in_(record_ids))
     )
     records = {record.id: record for record in records_result.all()}
     source_ids = {record.source_id for record in records.values()}
-    sources_result = await session.exec(select(Source).where(Source.id.in_(source_ids)))
+    sources_result = await session.exec(
+        select(Source).where(col(Source.id).in_(source_ids))
+    )
     sources = {source.id: source for source in sources_result.all()}
 
     grouped: defaultdict[UUID, list[tuple[SourceRecord, Source]]] = defaultdict(list)
