@@ -1,5 +1,11 @@
 # Provenance specification
 
-Important claims always identify their supporting source versions. Derived data,
-human verification, citizen submissions, and AI explanations remain distinct
-record types so the system can answer where a displayed assertion came from.
+Important project claims identify supporting source records through
+`ClaimSource`. Financial values, contractor information, and reported progress
+all carry a claim reference. `GET /api/v1/projects/{project_id}/sources`
+returns the project claims and their sources so clients can answer where each
+material fact came from.
+
+Derived anomaly flags, verification records, and citizen reports are separate
+record types. A derived flag links back to claims but is not a source or a
+verification result.
