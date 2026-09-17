@@ -7,10 +7,10 @@ The records are illustrative and must never be represented as government data.
 import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import TypedDict, cast
+from typing import Protocol, TypedDict, cast
 from uuid import UUID, uuid5
 
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import async_session_maker, close_database
@@ -19,7 +19,6 @@ from app.models.enums import (
     ClaimKind,
     FinancialKind,
     ProjectStatus,
-    ProjectType,
     SourceType,
     VerificationStatus,
 )
@@ -30,8 +29,10 @@ from app.models.vertical_slice import (
     County,
     FinancialRecord,
     Project,
+    ProjectCategory,
     ProjectContract,
     ProjectProgress,
+    ProjectSubtype,
     ProjectVerification,
     Source,
     SourceRecord,
@@ -50,7 +51,9 @@ class ProjectSeed(TypedDict):
     key: str
     name: str
     description: str
-    type: ProjectType
+    legacy_project_type: str
+    category_code: str
+    subtype_code: str | None
     status: ProjectStatus
     ward: str
     planned_start: date
@@ -68,6 +71,12 @@ class ProjectSeed(TypedDict):
     progress_date: date
 
 
+class _SeedRecordWithId(Protocol):
+    """Structural type for seeded SQLModel records with UUID primary keys."""
+
+    id: UUID
+
+
 def _id(key: str) -> UUID:
     """Create stable identifiers so repeated seed runs never duplicate records."""
     return uuid5(_DEMO_NAMESPACE, key)
@@ -75,8 +84,14 @@ def _id(key: str) -> UUID:
 
 async def _add_if_missing(session: AsyncSession, record: SQLModel) -> bool:
     """Stage a fixed-ID record only when it is not already persisted."""
-    record_id = cast(UUID, record.id)
     record_type: type[SQLModel] = type(record)
+    if isinstance(record, ClaimSource):
+        record_id: UUID | tuple[UUID, UUID] = (
+            record.claim_id,
+            record.source_record_id,
+        )
+    else:
+        record_id = cast(_SeedRecordWithId, record).id
     if await session.get(record_type, record_id) is not None:
         return False
     session.add(record)
@@ -91,6 +106,36 @@ async def _stage(session: AsyncSession, records: list[SQLModel]) -> int:
             created += 1
     await session.flush()
     return created
+
+
+async def _taxonomy_ids(
+    session: AsyncSession,
+    projects: list[ProjectSeed],
+) -> tuple[dict[str, UUID], dict[str, UUID]]:
+    """Resolve database-managed taxonomy records required by the demo projects."""
+    category_codes = {project["category_code"] for project in projects}
+    subtype_codes = {
+        subtype_code
+        for project in projects
+        if (subtype_code := project["subtype_code"]) is not None
+    }
+    categories_result = await session.exec(
+        select(ProjectCategory).where(col(ProjectCategory.code).in_(category_codes))
+    )
+    subtypes_result = await session.exec(
+        select(ProjectSubtype).where(col(ProjectSubtype.code).in_(subtype_codes))
+    )
+    category_ids = {category.code: category.id for category in categories_result.all()}
+    subtype_ids = {subtype.code: subtype.id for subtype in subtypes_result.all()}
+    missing_categories = category_codes - category_ids.keys()
+    missing_subtypes = subtype_codes - subtype_ids.keys()
+    if missing_categories or missing_subtypes:
+        raise RuntimeError(
+            "Project taxonomy reference data is unavailable: "
+            f"categories={sorted(missing_categories)}, "
+            f"subtypes={sorted(missing_subtypes)}"
+        )
+    return category_ids, subtype_ids
 
 
 async def seed_demo_data(session: AsyncSession) -> int:
@@ -122,6 +167,15 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "Kitui Central Demo",
             "town",
             "Kitui Town Demo Ward",
+        ),
+        (
+            "nairobi",
+            "Nairobi City",
+            "KE-DEMO-NRB",
+            "westlands",
+            "Westlands Demo",
+            "kangemi",
+            "Kangemi Demo Ward",
         ),
     ]
     created = 0
@@ -171,8 +225,12 @@ async def seed_demo_data(session: AsyncSession) -> int:
         {
             "key": "nyando-road",
             "name": "Nyando–Kochieng Access Road Rehabilitation (Demo)",
-            "description": "Fictional demonstration rehabilitation of a local access road.",
-            "type": ProjectType.ROAD,
+            "description": (
+                "Fictional demonstration rehabilitation of a local access road."
+            ),
+            "legacy_project_type": "ROAD",
+            "category_code": "ROADS_TRANSPORT",
+            "subtype_code": "ROAD_REHABILITATION",
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "kobura",
             "planned_start": date(2026, 7, 1),
@@ -192,8 +250,12 @@ async def seed_demo_data(session: AsyncSession) -> int:
         {
             "key": "muhoroni-clinic",
             "name": "Muhoroni Community Clinic Improvement (Demo)",
-            "description": "Fictional demonstration upgrade of a community clinic wing.",
-            "type": ProjectType.HEALTH,
+            "description": (
+                "Fictional demonstration upgrade of a community clinic wing."
+            ),
+            "legacy_project_type": "HEALTH",
+            "category_code": "HEALTH",
+            "subtype_code": "HEALTH_FACILITY",
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "kobura",
             "planned_start": date(2026, 6, 1),
@@ -214,7 +276,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "key": "naivasha-water",
             "name": "Naivasha Community Water Main Extension (Demo)",
             "description": "Fictional demonstration extension of a local water main.",
-            "type": ProjectType.WATER,
+            "legacy_project_type": "WATER",
+            "category_code": "WATER_SANITATION",
+            "subtype_code": "WATER_SUPPLY",
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "maai-mahiu",
             "planned_start": date(2026, 4, 1),
@@ -234,15 +298,21 @@ async def seed_demo_data(session: AsyncSession) -> int:
         {
             "key": "kitui-classrooms",
             "name": "Kitui Day School Classroom Improvement (Demo)",
-            "description": "Fictional demonstration construction of two classroom blocks.",
-            "type": ProjectType.EDUCATION,
+            "description": (
+                "Fictional demonstration construction of two classroom blocks."
+            ),
+            "legacy_project_type": "EDUCATION",
+            "category_code": "EDUCATION",
+            "subtype_code": "CLASSROOMS",
             "status": ProjectStatus.PLANNED,
             "ward": "town",
             "planned_start": date(2026, 10, 1),
             "planned_completion": date(2027, 6, 30),
             "actual_start": None,
             "expected_completion": date(2027, 6, 30),
-            "contractor": "Eastern Counties Education Build Ltd (fictional demo contractor)",
+            "contractor": (
+                "Eastern Counties Education Build Ltd (fictional demo contractor)"
+            ),
             "award": "DEMO-KTI-EDU-004",
             "allocated": Decimal("9000000.00"),
             "committed": Decimal("4000000.00"),
@@ -252,8 +322,35 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "progress": Decimal("25.00"),
             "progress_date": date(2026, 8, 20),
         },
+        {
+            "key": "kangemi-market",
+            "name": "Kangemi Market Access Improvement (Demo)",
+            "description": (
+                "Fictional demonstration improvement of market access paths and "
+                "drainage."
+            ),
+            "legacy_project_type": "ROAD",
+            "category_code": "ROADS_TRANSPORT",
+            "subtype_code": "ROAD_REHABILITATION",
+            "status": ProjectStatus.PLANNED,
+            "ward": "kangemi",
+            "planned_start": date(2026, 10, 15),
+            "planned_completion": date(2027, 5, 31),
+            "actual_start": None,
+            "expected_completion": date(2027, 5, 31),
+            "contractor": "Nairobi Community Works Ltd (fictional demo contractor)",
+            "award": "DEMO-NRB-MARKET-005",
+            "allocated": Decimal("11000000.00"),
+            "committed": Decimal("5000000.00"),
+            "contracted": Decimal("9500000.00"),
+            "spent": Decimal("1000000.00"),
+            "reported": Decimal("1000000.00"),
+            "progress": Decimal("10.00"),
+            "progress_date": date(2026, 8, 28),
+        },
     ]
 
+    category_ids, subtype_ids = await _taxonomy_ids(session, projects)
     project_records: list[SQLModel] = []
     contractor_records: list[SQLModel] = []
     source_records: list[SQLModel] = []
@@ -265,7 +362,13 @@ async def seed_demo_data(session: AsyncSession) -> int:
                 demo_key=project_key,
                 name=str(item["name"]),
                 description=str(item["description"]),
-                project_type=item["type"].value,
+                project_type=item["legacy_project_type"],
+                category_id=category_ids[item["category_code"]],
+                subtype_id=(
+                    subtype_ids[item["subtype_code"]]
+                    if item["subtype_code"] is not None
+                    else None
+                ),
                 status=item["status"].value,
                 ward_id=_id(f"ward:{item['ward']}"),
                 planned_start_date=item["planned_start"],
@@ -360,7 +463,10 @@ async def seed_demo_data(session: AsyncSession) -> int:
             (
                 "reported_progress_percentage",
                 ClaimKind.PROGRESS,
-                f"{item['progress']:.2f}% reported progress as of {item['progress_date']}",
+                (
+                    f"{item['progress']:.2f}% reported progress as of "
+                    f"{item['progress_date']}"
+                ),
                 item["progress"],
                 None,
             ),

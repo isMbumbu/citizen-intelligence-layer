@@ -3,10 +3,10 @@
 from typing import Any
 from uuid import UUID
 
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.enums import ProjectStatus, ProjectType
+from app.models.enums import ProjectStatus
 from app.models.vertical_slice import County, Project, ProjectProgress, SubCounty, Ward
 
 
@@ -15,7 +15,7 @@ async def list_projects(
     *,
     county: str | None,
     ward: str | None,
-    project_type: ProjectType | None,
+    project_type: str | None,
     status: ProjectStatus | None,
     search: str | None,
     offset: int,
@@ -28,7 +28,7 @@ async def list_projects(
     if ward is not None:
         conditions.append(func.lower(Ward.name) == ward.casefold())
     if project_type is not None:
-        conditions.append(Project.project_type == project_type.value)
+        conditions.append(Project.project_type == project_type)
     if status is not None:
         conditions.append(Project.status == status.value)
     if search is not None:
@@ -70,7 +70,10 @@ async def get_latest_progress(
     result = await session.exec(
         select(ProjectProgress)
         .where(ProjectProgress.project_id == project_id)
-        .order_by(ProjectProgress.reported_at.desc(), ProjectProgress.created_at.desc())
+        .order_by(
+            col(ProjectProgress.reported_at).desc(),
+            col(ProjectProgress.created_at).desc(),
+        )
         .limit(1)
     )
     return result.first()

@@ -12,7 +12,7 @@ from app.api.v1.modules.civic_action.schemas import (
 )
 from app.api.v1.modules.projects import repository as projects_repository
 from app.core.logging import logger
-from app.models.enums import ReportStatus
+from app.models.enums import ReportCategory, ReportStatus
 from app.models.vertical_slice import CitizenIssueReport
 
 
@@ -60,7 +60,7 @@ async def submit_report(
     return CitizenReportResponse(
         id=report.id,
         project_id=report.project_id,
-        category=report.category,
-        status=report.status,
+        category=ReportCategory(report.category),
+        status=ReportStatus(report.status),
         submitted_at=report.submitted_at,
     )

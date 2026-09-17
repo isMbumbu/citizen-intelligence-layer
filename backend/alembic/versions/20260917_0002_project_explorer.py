@@ -252,7 +252,10 @@ def upgrade() -> None:
         sa.Column("notes", sa.Text(), nullable=False),
         sa.Column("source_record_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.CheckConstraint(
-            "status IN ('UNVERIFIED', 'PARTIALLY_VERIFIED', 'VERIFIED', 'STALE', 'DISPUTED')",
+            (
+                "status IN ('UNVERIFIED', 'PARTIALLY_VERIFIED', 'VERIFIED', "
+                "'STALE', 'DISPUTED')"
+            ),
             name="ck_project_verifications_status",
         ),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"]),

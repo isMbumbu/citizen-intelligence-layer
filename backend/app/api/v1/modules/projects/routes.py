@@ -15,7 +15,7 @@ from app.api.v1.modules.projects.schemas import (
     VerificationResponse,
 )
 from app.core.database import get_session
-from app.models.enums import ProjectStatus, ProjectType
+from app.models.enums import ProjectStatus
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -28,7 +28,7 @@ async def list_projects(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     county: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
     ward: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
-    project_type: ProjectType | None = None,
+    project_type: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
     status: ProjectStatus | None = None,
     search: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
 ) -> ProjectPageResponse:

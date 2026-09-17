@@ -1,6 +1,6 @@
 """Celery application configuration."""
 
-from celery import Celery
+from celery import Celery  # type: ignore[import-untyped]
 
 from app.core.config import settings
 

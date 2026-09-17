@@ -8,7 +8,7 @@ from app.core.logging import logger
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """Register handlers that preserve useful client errors without leaking internals."""
+    """Register client-safe handlers that do not leak internal error details."""
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(
@@ -16,7 +16,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         logger.info(
             "Request validation failed",
-            extra={"path": request.url.path, "errors": exc.error_count()},
+            extra={"path": request.url.path, "errors": len(exc.errors())},
         )
         return JSONResponse(
             status_code=422,

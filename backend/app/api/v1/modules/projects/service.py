@@ -29,7 +29,13 @@ from app.api.v1.modules.projects.schemas import (
 from app.api.v1.modules.sources import repository as sources_repository
 from app.api.v1.modules.verification import repository as verification_repository
 from app.core.logging import logger
-from app.models.enums import FinancialKind, ProjectStatus, ProjectType
+from app.models.enums import (
+    ClaimKind,
+    FinancialKind,
+    ProjectStatus,
+    SourceType,
+    VerificationStatus,
+)
 from app.models.vertical_slice import (
     Claim,
     Contractor,
@@ -55,7 +61,7 @@ async def list_projects(
     *,
     county: str | None,
     ward: str | None,
-    project_type: ProjectType | None,
+    project_type: str | None,
     project_status: ProjectStatus | None,
     search: str | None,
     page: int,
@@ -112,6 +118,7 @@ async def get_project_detail(
             {claim.id for claim in claims},
         )
         verification_source = await _verification_source(session, verification)
+        anomalies = await _derive_project_anomalies(session, project_id)
     except HTTPException:
         raise
     except Exception as error:
@@ -128,7 +135,7 @@ async def get_project_detail(
         name=project.name,
         description=project.description,
         project_type=project.project_type,
-        status=project.status,
+        status=ProjectStatus(project.status),
         location=_location_response(location),
         financial_summary=_financial_summary(financial_records, evidence_by_claim),
         contractor=_contract_response(contract, evidence_by_claim),
@@ -142,7 +149,7 @@ async def get_project_detail(
         last_verified_at=project.last_verified_at,
         verification=(
             VerificationResponse(
-                status=verification.status,
+                status=VerificationStatus(verification.status),
                 verification_date=verification.verification_date,
                 recorded_at=verification.recorded_at,
                 notes=verification.notes,
@@ -151,6 +158,7 @@ async def get_project_detail(
             if verification is not None
             else None
         ),
+        anomalies=anomalies,
         evidence=[
             _claim_evidence_response(claim, evidence_by_claim) for claim in claims
         ],
@@ -207,7 +215,7 @@ async def get_project_verification(
             detail="Unable to retrieve project verification.",
         ) from error
     return VerificationResponse(
-        status=verification.status,
+        status=VerificationStatus(verification.status),
         verification_date=verification.verification_date,
         recorded_at=verification.recorded_at,
         notes=verification.notes,
@@ -220,8 +228,16 @@ async def get_project_anomalies(
     project_id: UUID,
 ) -> list[ProjectAnomalyResponse]:
     """Derive review flags only from sourced progress and financial records."""
+    await _project_or_404(session, project_id)
+    return await _derive_project_anomalies(session, project_id)
+
+
+async def _derive_project_anomalies(
+    session: AsyncSession,
+    project_id: UUID,
+) -> list[ProjectAnomalyResponse]:
+    """Derive review flags from sourced progress and financial records."""
     try:
-        await _project_or_404(session, project_id)
         records = await finance_repository.list_for_project(session, project_id)
         progress = await repository.get_latest_progress(session, project_id)
         if progress is None:
@@ -288,7 +304,7 @@ async def _list_item(
         name=project.name,
         description=project.description,
         project_type=project.project_type,
-        status=project.status,
+        status=ProjectStatus(project.status),
         location=_location_response(location),
     )
 
@@ -345,7 +361,7 @@ def _financial_summary(
     values: dict[str, FinancialFactResponse] = {}
     for record in records:
         values[record.kind.lower()] = FinancialFactResponse(
-            kind=record.kind,
+            kind=FinancialKind(record.kind),
             amount=record.amount,
             currency=record.currency,
             financial_period=record.financial_period,
@@ -394,7 +410,7 @@ def _claim_evidence_response(
     """Convert a claim and its source-record evidence into the API contract."""
     return ClaimEvidenceResponse(
         id=claim.id,
-        claim_kind=claim.claim_kind,
+        claim_kind=ClaimKind(claim.claim_kind),
         field_name=claim.field_name,
         value_text=claim.value_text,
         numeric_value=claim.numeric_value,
@@ -448,7 +464,7 @@ def _source_reference(
         source_record_id=record.id,
         publisher=source.publisher,
         title=source.title,
-        source_type=source.source_type,
+        source_type=SourceType(source.source_type),
         url=source.url,
         publication_date=source.publication_date,
         retrieved_at=source.retrieved_at,
