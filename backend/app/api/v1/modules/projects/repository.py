@@ -7,7 +7,13 @@ from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.enums import ProjectStatus
-from app.models.vertical_slice import County, Project, ProjectProgress, SubCounty, Ward
+from app.models.vertical_slice import (
+    County,
+    Project,
+    ProjectProgress,
+    SubCounty,
+    Ward,
+)
 
 
 async def list_projects(
@@ -16,6 +22,8 @@ async def list_projects(
     county: str | None,
     ward: str | None,
     project_type: str | None,
+    category_id: UUID | None,
+    subtype_id: UUID | None,
     status: ProjectStatus | None,
     search: str | None,
     offset: int,
@@ -29,6 +37,10 @@ async def list_projects(
         conditions.append(func.lower(Ward.name) == ward.casefold())
     if project_type is not None:
         conditions.append(Project.project_type == project_type)
+    if category_id is not None:
+        conditions.append(Project.category_id == category_id)
+    if subtype_id is not None:
+        conditions.append(Project.subtype_id == subtype_id)
     if status is not None:
         conditions.append(Project.status == status.value)
     if search is not None:

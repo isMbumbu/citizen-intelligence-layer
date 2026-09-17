@@ -58,11 +58,25 @@ class LocationResponse(BaseModel):
     ward: str
 
 
+class ProjectCategoryLabelResponse(BaseModel):
+    id: UUID
+    code: str
+    name: str
+
+
+class ProjectSubtypeLabelResponse(BaseModel):
+    id: UUID
+    code: str
+    name: str
+
+
 class ProjectListItemResponse(BaseModel):
     id: UUID
     name: str
     description: str
     project_type: str | None
+    category: ProjectCategoryLabelResponse
+    subtype: ProjectSubtypeLabelResponse | None
     status: ProjectStatus
     location: LocationResponse
 
@@ -142,6 +156,8 @@ class ProjectDetailResponse(BaseModel):
     name: str
     description: str
     project_type: str | None
+    category: ProjectCategoryLabelResponse
+    subtype: ProjectSubtypeLabelResponse | None
     status: ProjectStatus
     location: LocationResponse
     financial_summary: FinancialSummaryResponse

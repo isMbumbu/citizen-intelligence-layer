@@ -48,3 +48,17 @@ async def get_active_category(
         )
     )
     return result.first()
+
+
+async def get_active_subtype(
+    session: AsyncSession,
+    subtype_id: UUID,
+) -> ProjectSubtype | None:
+    """Return one active subtype, or no result for an inactive/unknown record."""
+    result = await session.exec(
+        select(ProjectSubtype).where(
+            ProjectSubtype.id == subtype_id,
+            col(ProjectSubtype.is_active).is_(True),
+        )
+    )
+    return result.first()
