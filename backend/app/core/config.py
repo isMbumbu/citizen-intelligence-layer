@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://redis:6379/1"
     celery_worker_concurrency: int = 2
 
+    evidence_storage_root: str = "/tmp/citizen-intelligence-evidence"
+    evidence_max_size_bytes: int = 10 * 1024 * 1024
+    evidence_allowed_mime_types: list[str] = [
+        "application/pdf",
+        "image/gif",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    ]
+
     storage_endpoint: str = ""
     storage_bucket: str = ""
     storage_access_key: str = ""

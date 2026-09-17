@@ -45,3 +45,36 @@ class EvidenceResponse(BaseModel):
     uploaded_at: datetime
     is_official_source: bool = False
     trust_label: str = "CITIZEN_SUBMITTED_EVIDENCE"
+
+
+class EvidenceProcessingEventResponse(BaseModel):
+    """Safe public representation of one processing transition."""
+
+    id: UUID
+    from_state: EvidenceProcessingState | None
+    to_state: EvidenceProcessingState
+    event_type: str
+    error_code: str | None
+    error_message: str | None
+    created_at: datetime
+
+
+class EvidenceDerivedArtifactResponse(BaseModel):
+    """Safe lineage metadata for one unverified derived artifact."""
+
+    id: UUID
+    evidence_id: UUID
+    artifact_type: str
+    content_hash: str | None
+    source_class: EvidenceSourceClass
+    trust_classification: str
+    created_at: datetime
+
+
+class EvidenceProcessingResponse(BaseModel):
+    """Processing state, audit history, and derived-artifact lineage."""
+
+    evidence_id: UUID
+    processing_state: EvidenceProcessingState
+    events: list[EvidenceProcessingEventResponse]
+    derived_artifacts: list[EvidenceDerivedArtifactResponse]

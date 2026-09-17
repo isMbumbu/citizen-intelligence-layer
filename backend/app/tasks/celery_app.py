@@ -19,4 +19,4 @@ celery_app.conf.update(
     worker_concurrency=settings.celery_worker_concurrency,
     worker_prefetch_multiplier=1,
 )
-celery_app.conf.imports = ("app.tasks.health",)
+celery_app.conf.imports = ("app.tasks.health", "app.tasks.evidence_processing")

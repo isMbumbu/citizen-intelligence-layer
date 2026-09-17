@@ -1,7 +1,11 @@
 """SQLModel persistence models registered for Alembic metadata."""
 
 from app.models.citizen_comments import CitizenComment, CommentReport
-from app.models.evidence import EvidenceRecord
+from app.models.evidence import (
+    EvidenceDerivedArtifact,
+    EvidenceProcessingEvent,
+    EvidenceRecord,
+)
 from app.models.service_state import ServiceState
 from app.models.vertical_slice import (
     CitizenIssueReport,
@@ -27,6 +31,8 @@ __all__ = [
     "CitizenComment",
     "CommentReport",
     "EvidenceRecord",
+    "EvidenceProcessingEvent",
+    "EvidenceDerivedArtifact",
     "Claim",
     "ClaimSource",
     "Contractor",

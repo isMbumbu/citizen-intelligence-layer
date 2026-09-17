@@ -3,15 +3,50 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.evidence import service
-from app.api.v1.modules.evidence.schemas import EvidenceCreateRequest, EvidenceResponse
+from app.api.v1.modules.evidence.schemas import (
+    EvidenceProcessingResponse,
+    EvidenceResponse,
+)
 from app.core.database import get_session
 
 router = APIRouter(tags=["evidence"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+@router.post(
+    "/comments/{comment_id}/evidence",
+    response_model=EvidenceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_comment_evidence(
+    comment_id: UUID,
+    session: SessionDep,
+    uploader_id: UUID = Form(...),  # noqa: B008
+    file: UploadFile = File(...),  # noqa: B008
+) -> EvidenceResponse:
+    """Validate and store one citizen evidence upload for a comment."""
+    return await service.upload_comment_evidence(session, comment_id, uploader_id, file)
+
+
+@router.post(
+    "/reports/{report_id}/evidence",
+    response_model=EvidenceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_report_evidence_by_id(
+    report_id: UUID,
+    session: SessionDep,
+    uploader_id: UUID = Form(...),  # noqa: B008
+    file: UploadFile = File(...),  # noqa: B008
+) -> EvidenceResponse:
+    """Validate and store one citizen evidence upload for a report."""
+    return await service.upload_report_evidence_by_id(
+        session, report_id, uploader_id, file
+    )
 
 
 @router.post(
@@ -21,11 +56,15 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 )
 async def create_project_evidence(
     project_id: UUID,
-    payload: EvidenceCreateRequest,
     session: SessionDep,
+    uploader_id: UUID = Form(...),  # noqa: B008
+    comment_id: UUID | None = Form(None),  # noqa: B008
+    file: UploadFile = File(...),  # noqa: B008
 ) -> EvidenceResponse:
-    """Create citizen evidence metadata for a project or its comment."""
-    return await service.create_project_evidence(session, project_id, payload)
+    """Validate and store one citizen evidence upload for a project."""
+    return await service.upload_project_evidence(
+        session, project_id, uploader_id, comment_id, file
+    )
 
 
 @router.post(
@@ -36,15 +75,14 @@ async def create_project_evidence(
 async def create_report_evidence(
     project_id: UUID,
     report_id: UUID,
-    payload: EvidenceCreateRequest,
     session: SessionDep,
+    uploader_id: UUID = Form(...),  # noqa: B008
+    comment_id: UUID | None = Form(None),  # noqa: B008
+    file: UploadFile = File(...),  # noqa: B008
 ) -> EvidenceResponse:
-    """Create citizen evidence metadata for an issue report."""
-    return await service.create_report_evidence(
-        session,
-        project_id,
-        report_id,
-        payload,
+    """Validate and store one citizen evidence upload for an issue report."""
+    return await service.upload_report_evidence(
+        session, project_id, report_id, uploader_id, comment_id, file
     )
 
 
@@ -55,3 +93,15 @@ async def get_evidence(
 ) -> EvidenceResponse:
     """Return evidence metadata without retrieving uploaded file content."""
     return await service.get_evidence(session, evidence_id)
+
+
+@router.get(
+    "/evidence/{evidence_id}/processing",
+    response_model=EvidenceProcessingResponse,
+)
+async def get_evidence_processing(
+    evidence_id: UUID,
+    session: SessionDep,
+) -> EvidenceProcessingResponse:
+    """Return processing state, safe history, and derived-artifact lineage."""
+    return await service.get_processing(session, evidence_id)
