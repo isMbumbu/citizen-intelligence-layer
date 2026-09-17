@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import ClassVar
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import Column, DateTime, ForeignKeyConstraint, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -50,14 +50,76 @@ class Ward(SQLModel, table=True):
     )
 
 
+class ProjectCategory(SQLModel, table=True):
+    """Database-managed, top-level reference data for public-project grouping."""
+
+    __tablename__: ClassVar[str] = "project_categories"
+    __table_args__ = (UniqueConstraint("code", name="uq_project_categories_code"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    code: str = Field(max_length=80, index=True)
+    name: str = Field(max_length=160, index=True)
+    description: str = Field(max_length=1000)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+class ProjectSubtype(SQLModel, table=True):
+    """Database-managed, category-scoped detail for project classification."""
+
+    __tablename__: ClassVar[str] = "project_subtypes"
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_project_subtypes_code"),
+        UniqueConstraint(
+            "category_id", "code", name="uq_project_subtypes_category_code"
+        ),
+        UniqueConstraint("category_id", "id", name="uq_project_subtypes_category_id"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    category_id: UUID = Field(foreign_key="project_categories.id", index=True)
+    code: str = Field(max_length=80, index=True)
+    name: str = Field(max_length=160, index=True)
+    description: str = Field(max_length=1000)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
 class Project(SQLModel, table=True):
     __tablename__: ClassVar[str] = "projects"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["category_id", "subtype_id"],
+            ["project_subtypes.category_id", "project_subtypes.id"],
+            name="fk_projects_category_subtype",
+        ),
+    )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     demo_key: str = Field(max_length=80, index=True)
     name: str = Field(max_length=255, index=True)
     description: str = Field(max_length=4000)
-    project_type: str = Field(max_length=30, index=True)
+    project_type: str | None = Field(default=None, max_length=30, index=True)
+    category_id: UUID = Field(foreign_key="project_categories.id", index=True)
+    subtype_id: UUID | None = Field(
+        default=None,
+        foreign_key="project_subtypes.id",
+        index=True,
+    )
     status: str = Field(max_length=30, index=True)
     ward_id: UUID = Field(foreign_key="wards.id", index=True)
     planned_start_date: date

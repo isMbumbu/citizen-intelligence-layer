@@ -236,7 +236,92 @@ Acceptance criteria:
 
 ---
 
-## Epic 9: Citizen reports
+## Epic 9: Taxonomy and community contribution
+
+### TAX-001: Project category reference data
+Goal: Replace the narrow project-type enum with a Kenya-aware category model.
+
+Acceptance criteria:
+- The project taxonomy supports multiple parent categories and subtypes.
+- The model supports county and national public-project records.
+- Category data is managed as reference data rather than hard-coded application logic.
+- The taxonomy can support filtering and future analytics without redeployment.
+
+### TAX-002: Project category filtering and county/national support
+Goal: Expose category and subtype filtering in the project explorer.
+
+Acceptance criteria:
+- `GET /api/v1/projects` accepts category and subtype filters.
+- The project list returns county and national project records in the same browse flow.
+- Category metadata is visible on each project record and in the explorer UI.
+
+### CIV-001: Citizen comment model
+Goal: Allow citizens to comment on public projects without turning comments into official facts.
+
+Acceptance criteria:
+- Comments are stored with project association, author metadata, status, and moderation state.
+- Each comment is clearly labelled as citizen-submitted information.
+- Parent-child thread support is available if replies are enabled.
+- Comment reporting is supported for abuse and policy violations.
+
+### CIV-002: Create and view project comments
+Goal: Let citizens add and read project comments safely.
+
+Acceptance criteria:
+- The API supports comment creation and retrieval for a project.
+- Comment data includes lifecycle and visibility metadata.
+- Comments are rendered with trust labels rather than as official project facts.
+
+### EVD-001: Evidence storage model
+Goal: Support evidence attachments for comments and citizen reports.
+
+Acceptance criteria:
+- Evidence metadata is stored separately from the actual file.
+- Evidence remains distinct from official source documents.
+- The model preserves ownership, checksum, processing state, and visibility.
+- Image and PDF evidence can be stored and retrieved later for verification work.
+
+### EVD-002: Secure evidence upload
+Goal: Accept safe image and PDF uploads from citizens.
+
+Acceptance criteria:
+- Only supported file types are accepted.
+- Malformed or oversized uploads are rejected.
+- Files are stored with generated keys and integrity metadata.
+- The system never executes uploaded content or accepts a user-controlled path.
+
+### MOD-001: Comment and evidence moderation
+Goal: Apply moderation to citizen content without confusing unverified content with falsehood.
+
+Acceptance criteria:
+- Moderation states are persisted for comments and evidence.
+- A moderator can flag or hide content due to spam, harassment, personal data, malicious content, or inappropriate behavior.
+- Hidden or removed content retains an audit trail and provenance context.
+- Unverified content is labelled as such and never equated with falsehood.
+
+### RAT-001: Rate limiting and abuse protection
+Goal: Reduce abuse for comments, reports, uploads, and expensive operations.
+
+Acceptance criteria:
+- Comments, reports, uploads, and expensive request paths are rate-limited.
+- Redis-backed enforcement is used where appropriate.
+- The limit values are configurable.
+- The API returns a clear rate-limit response.
+- Tests cover both normal and over-limit behavior.
+
+### STG-001: Secure evidence retrieval
+Goal: Provide safe retrieval for uploaded images and PDFs.
+
+Acceptance criteria:
+- Retrieval is authorization-aware and visibility-aware.
+- Generated storage keys are used for all file access.
+- Path traversal and direct object manipulation attempts are rejected.
+- Pending or private files are not publicly exposed.
+- Correct content-disposition and content-type headers are applied.
+
+---
+
+## Epic 10: Citizen reports
 
 ### CIVIC-001: Issue report submission
 Goal: Allow a resident to report a problem for a project.
@@ -264,7 +349,7 @@ Acceptance criteria:
 
 ---
 
-## Epic 10: Institutional response
+## Epic 11: Institutional response
 
 ### RESP-001: Institution model
 Goal: Represent public institutions and agencies.
@@ -289,7 +374,7 @@ Acceptance criteria:
 
 ---
 
-## Epic 11: AI intelligence layer
+## Epic 12: AI intelligence layer
 
 ### AI-001: Project explanation
 Goal: Explain what a project is and why it matters.
@@ -322,7 +407,7 @@ Acceptance criteria:
 
 ---
 
-## Epic 12: Frontend integration
+## Epic 13: Frontend integration
 
 ### FE-001: Landing page
 Goal: Present the project concept clearly.

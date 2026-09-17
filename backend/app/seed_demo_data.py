@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Protocol, TypedDict, cast
 from uuid import UUID, uuid5
 
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import async_session_maker, close_database
@@ -19,7 +19,6 @@ from app.models.enums import (
     ClaimKind,
     FinancialKind,
     ProjectStatus,
-    ProjectType,
     SourceType,
     VerificationStatus,
 )
@@ -30,8 +29,10 @@ from app.models.vertical_slice import (
     County,
     FinancialRecord,
     Project,
+    ProjectCategory,
     ProjectContract,
     ProjectProgress,
+    ProjectSubtype,
     ProjectVerification,
     Source,
     SourceRecord,
@@ -50,7 +51,9 @@ class ProjectSeed(TypedDict):
     key: str
     name: str
     description: str
-    type: ProjectType
+    legacy_project_type: str
+    category_code: str
+    subtype_code: str | None
     status: ProjectStatus
     ward: str
     planned_start: date
@@ -103,6 +106,36 @@ async def _stage(session: AsyncSession, records: list[SQLModel]) -> int:
             created += 1
     await session.flush()
     return created
+
+
+async def _taxonomy_ids(
+    session: AsyncSession,
+    projects: list[ProjectSeed],
+) -> tuple[dict[str, UUID], dict[str, UUID]]:
+    """Resolve database-managed taxonomy records required by the demo projects."""
+    category_codes = {project["category_code"] for project in projects}
+    subtype_codes = {
+        subtype_code
+        for project in projects
+        if (subtype_code := project["subtype_code"]) is not None
+    }
+    categories_result = await session.exec(
+        select(ProjectCategory).where(col(ProjectCategory.code).in_(category_codes))
+    )
+    subtypes_result = await session.exec(
+        select(ProjectSubtype).where(col(ProjectSubtype.code).in_(subtype_codes))
+    )
+    category_ids = {category.code: category.id for category in categories_result.all()}
+    subtype_ids = {subtype.code: subtype.id for subtype in subtypes_result.all()}
+    missing_categories = category_codes - category_ids.keys()
+    missing_subtypes = subtype_codes - subtype_ids.keys()
+    if missing_categories or missing_subtypes:
+        raise RuntimeError(
+            "Project taxonomy reference data is unavailable: "
+            f"categories={sorted(missing_categories)}, "
+            f"subtypes={sorted(missing_subtypes)}"
+        )
+    return category_ids, subtype_ids
 
 
 async def seed_demo_data(session: AsyncSession) -> int:
@@ -195,7 +228,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "description": (
                 "Fictional demonstration rehabilitation of a local access road."
             ),
-            "type": ProjectType.ROAD,
+            "legacy_project_type": "ROAD",
+            "category_code": "ROADS_TRANSPORT",
+            "subtype_code": "ROAD_REHABILITATION",
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "kobura",
             "planned_start": date(2026, 7, 1),
@@ -218,7 +253,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "description": (
                 "Fictional demonstration upgrade of a community clinic wing."
             ),
-            "type": ProjectType.HEALTH,
+            "legacy_project_type": "HEALTH",
+            "category_code": "HEALTH",
+            "subtype_code": "HEALTH_FACILITY",
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "kobura",
             "planned_start": date(2026, 6, 1),
@@ -239,7 +276,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "key": "naivasha-water",
             "name": "Naivasha Community Water Main Extension (Demo)",
             "description": "Fictional demonstration extension of a local water main.",
-            "type": ProjectType.WATER,
+            "legacy_project_type": "WATER",
+            "category_code": "WATER_SANITATION",
+            "subtype_code": "WATER_SUPPLY",
             "status": ProjectStatus.IN_PROGRESS,
             "ward": "maai-mahiu",
             "planned_start": date(2026, 4, 1),
@@ -262,7 +301,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
             "description": (
                 "Fictional demonstration construction of two classroom blocks."
             ),
-            "type": ProjectType.EDUCATION,
+            "legacy_project_type": "EDUCATION",
+            "category_code": "EDUCATION",
+            "subtype_code": "CLASSROOMS",
             "status": ProjectStatus.PLANNED,
             "ward": "town",
             "planned_start": date(2026, 10, 1),
@@ -288,7 +329,9 @@ async def seed_demo_data(session: AsyncSession) -> int:
                 "Fictional demonstration improvement of market access paths and "
                 "drainage."
             ),
-            "type": ProjectType.ROAD,
+            "legacy_project_type": "ROAD",
+            "category_code": "ROADS_TRANSPORT",
+            "subtype_code": "ROAD_REHABILITATION",
             "status": ProjectStatus.PLANNED,
             "ward": "kangemi",
             "planned_start": date(2026, 10, 15),
@@ -307,6 +350,7 @@ async def seed_demo_data(session: AsyncSession) -> int:
         },
     ]
 
+    category_ids, subtype_ids = await _taxonomy_ids(session, projects)
     project_records: list[SQLModel] = []
     contractor_records: list[SQLModel] = []
     source_records: list[SQLModel] = []
@@ -318,7 +362,13 @@ async def seed_demo_data(session: AsyncSession) -> int:
                 demo_key=project_key,
                 name=str(item["name"]),
                 description=str(item["description"]),
-                project_type=item["type"].value,
+                project_type=item["legacy_project_type"],
+                category_id=category_ids[item["category_code"]],
+                subtype_id=(
+                    subtype_ids[item["subtype_code"]]
+                    if item["subtype_code"] is not None
+                    else None
+                ),
                 status=item["status"].value,
                 ward_id=_id(f"ward:{item['ward']}"),
                 planned_start_date=item["planned_start"],

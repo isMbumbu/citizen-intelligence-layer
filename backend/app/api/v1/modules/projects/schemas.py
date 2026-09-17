@@ -10,7 +10,6 @@ from app.models.enums import (
     ClaimKind,
     FinancialKind,
     ProjectStatus,
-    ProjectType,
     SourceType,
     VerificationStatus,
 )
@@ -63,7 +62,7 @@ class ProjectListItemResponse(BaseModel):
     id: UUID
     name: str
     description: str
-    project_type: ProjectType
+    project_type: str | None
     status: ProjectStatus
     location: LocationResponse
 
@@ -142,7 +141,7 @@ class ProjectDetailResponse(BaseModel):
     id: UUID
     name: str
     description: str
-    project_type: ProjectType
+    project_type: str | None
     status: ProjectStatus
     location: LocationResponse
     financial_summary: FinancialSummaryResponse

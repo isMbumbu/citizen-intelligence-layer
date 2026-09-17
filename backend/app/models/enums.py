@@ -3,13 +3,6 @@
 from enum import StrEnum
 
 
-class ProjectType(StrEnum):
-    ROAD = "ROAD"
-    HEALTH = "HEALTH"
-    WATER = "WATER"
-    EDUCATION = "EDUCATION"
-
-
 class ProjectStatus(StrEnum):
     PLANNED = "PLANNED"
     IN_PROGRESS = "IN_PROGRESS"
