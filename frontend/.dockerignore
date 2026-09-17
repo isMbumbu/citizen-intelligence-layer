@@ -1,0 +1,19 @@
+# Dependencies and generated build output are recreated in image stages.
+node_modules/
+.next/
+out/
+coverage/
+
+# Do not copy local configuration or credentials into an image build context.
+.env
+.env.*
+!.env.example
+
+# Development-only files and metadata.
+.git/
+.gitignore
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo

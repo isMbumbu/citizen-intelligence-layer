@@ -30,15 +30,18 @@ output is explanatory rather than authoritative.
 
 1. Copy the root environment template: `cp .env.example .env`.
 2. Start the stack: `docker compose up --build`.
-3. Open FastAPI documentation at <http://localhost:8000/docs>.
-4. Check the service at <http://localhost:8000/health>.
+3. Open the frontend at <http://localhost:3000>.
+4. Open FastAPI documentation at <http://localhost:8000/docs>.
+5. Check the service at <http://localhost:8000/health>.
 
-Docker Compose runs PostgreSQL with PostGIS and pgvector, Redis, RabbitMQ, the
-API, migrations, and a Celery worker. The database extensions are created by
-the first Alembic migration; `/health/ready` checks PostgreSQL and Redis. The
-backend API uses a development image with source reloads, while migrations and
-the worker use the minimal runtime image. See [backend/README.md](backend/README.md)
-for the image stages and database-extension rationale.
+Docker Compose runs the Next.js frontend, PostgreSQL with PostGIS and pgvector,
+Redis, RabbitMQ, the API, migrations, and a Celery worker. The database
+extensions are created by the first Alembic migration; `/health/ready` checks
+PostgreSQL and Redis. The backend API uses a development image with source
+reloads, while migrations and the worker use the minimal runtime image. The
+frontend uses a minimal Next.js standalone runtime and proxies browser API
+requests to the internal API service. See [backend/README.md](backend/README.md)
+and [frontend/README.md](frontend/README.md) for image details.
 
 For backend-only development, follow [backend/README.md](backend/README.md).
 For frontend-only development, follow [frontend/README.md](frontend/README.md).
