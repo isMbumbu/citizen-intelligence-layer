@@ -1,0 +1,19 @@
+# Local environments and configuration must never be copied into an image.
+.env
+.env.*
+!.env.example
+.venv/
+
+# Python, test, type-check, and lint caches.
+__pycache__/
+*.py[cod]
+.coverage
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# The production image needs only the application and Alembic migration files.
+tests/
+.git/
+.gitignore
