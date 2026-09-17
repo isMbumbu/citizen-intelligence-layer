@@ -3,15 +3,16 @@
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from redis.exceptions import RedisError
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -88,7 +89,7 @@ async def health_check() -> dict[str, str]:
     summary="Database and cache readiness check",
 )
 async def readiness_check(
-    session: AsyncSession = Depends(get_session),
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, str]:
     """Verify the API can reach PostgreSQL and Redis asynchronously."""
     try:
