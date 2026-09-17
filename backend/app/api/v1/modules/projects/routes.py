@@ -29,6 +29,8 @@ async def list_projects(
     county: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
     ward: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
     project_type: Annotated[str | None, Query(min_length=1, max_length=80)] = None,
+    category_id: UUID | None = None,
+    subtype_id: UUID | None = None,
     status: ProjectStatus | None = None,
     search: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
 ) -> ProjectPageResponse:
@@ -38,6 +40,8 @@ async def list_projects(
         county=county.strip() if county is not None else None,
         ward=ward.strip() if ward is not None else None,
         project_type=project_type,
+        category_id=category_id,
+        subtype_id=subtype_id,
         project_status=status,
         search=search.strip() if search is not None else None,
         page=page,

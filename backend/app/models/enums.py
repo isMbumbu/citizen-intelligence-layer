@@ -50,3 +50,53 @@ class ReportCategory(StrEnum):
 
 class ReportStatus(StrEnum):
     SUBMITTED = "SUBMITTED"
+
+
+class CommentStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+
+
+class CommentModerationState(StrEnum):
+    PENDING = "PENDING"
+
+
+class CommentVisibility(StrEnum):
+    PUBLIC = "PUBLIC"
+
+
+class CommentReportReason(StrEnum):
+    SPAM = "SPAM"
+    HARASSMENT = "HARASSMENT"
+    PERSONAL_INFORMATION = "PERSONAL_INFORMATION"
+    INAPPROPRIATE = "INAPPROPRIATE"
+    OTHER = "OTHER"
+
+
+class CommentReportStatus(StrEnum):
+    SUBMITTED = "SUBMITTED"
+
+
+class EvidenceSourceClass(StrEnum):
+    CITIZEN_SUBMITTED = "CITIZEN_SUBMITTED"
+
+
+class EvidenceModerationState(StrEnum):
+    PENDING = "PENDING"
+    FLAGGED = "FLAGGED"
+    HIDDEN = "HIDDEN"
+    REMOVED = "REMOVED"
+
+
+class EvidenceProcessingState(StrEnum):
+    RAW = "RAW"
+    VALIDATION_PASSED = "VALIDATION_PASSED"
+    EXTRACTED = "EXTRACTED"
+    INDEXED = "INDEXED"
+    FAILED = "FAILED"
+    HIDDEN = "HIDDEN"
+
+
+class EvidenceVisibility(StrEnum):
+    PRIVATE = "PRIVATE"
+    PENDING = "PENDING"
+    PUBLIC = "PUBLIC"
