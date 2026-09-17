@@ -17,6 +17,25 @@ npm run dev
 The home page renders the backend health status, so it doubles as a check that
 the API wiring works.
 
+## Docker
+
+The root Compose stack serves the production-style frontend image at
+<http://localhost:3000>:
+
+```bash
+docker compose up --build
+```
+
+The image uses Next.js standalone output, runs as an unprivileged user, and
+contains only traced runtime files, public assets, and static build assets.
+Compose supplies `http://api:8000` as the internal API address; the browser
+still uses the same-origin `/api/v1` prefix, so no API CORS configuration is
+needed. It intentionally does not receive the root backend `.env` file.
+
+For quick UI iteration on Docker Desktop, use `npm run dev` on the host instead
+of a bind-mounted container. Next.js recommends this because host filesystem
+mounts can make Fast Refresh slow or unreliable on macOS and Windows.
+
 ## Backend request flow
 
 The backend API is versioned (`/api/v1`) and runs on port 8000. Two routes are

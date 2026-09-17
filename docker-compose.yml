@@ -2,6 +2,12 @@ x-backend-build: &backend-build
   context: ./backend
   dockerfile: Dockerfile
 
+x-frontend-build: &frontend-build
+  context: ./frontend
+  dockerfile: Dockerfile
+  args:
+    API_BASE_URL: http://api:8000
+
 services:
   migrate:
     build: *backend-build
@@ -25,6 +31,22 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  frontend:
+    build: *frontend-build
+    environment:
+      API_BASE_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      api:
+        condition: service_started
 
   worker:
     build: *backend-build
