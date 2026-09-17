@@ -50,3 +50,27 @@ class ReportCategory(StrEnum):
 
 class ReportStatus(StrEnum):
     SUBMITTED = "SUBMITTED"
+
+
+class CommentStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+
+
+class CommentModerationState(StrEnum):
+    PENDING = "PENDING"
+
+
+class CommentVisibility(StrEnum):
+    PUBLIC = "PUBLIC"
+
+
+class CommentReportReason(StrEnum):
+    SPAM = "SPAM"
+    HARASSMENT = "HARASSMENT"
+    PERSONAL_INFORMATION = "PERSONAL_INFORMATION"
+    INAPPROPRIATE = "INAPPROPRIATE"
+    OTHER = "OTHER"
+
+
+class CommentReportStatus(StrEnum):
+    SUBMITTED = "SUBMITTED"
