@@ -35,7 +35,10 @@ output is explanatory rather than authoritative.
 
 Docker Compose runs PostgreSQL with PostGIS and pgvector, Redis, RabbitMQ, the
 API, migrations, and a Celery worker. The database extensions are created by
-the first Alembic migration; `/health/ready` checks PostgreSQL and Redis.
+the first Alembic migration; `/health/ready` checks PostgreSQL and Redis. The
+backend API uses a development image with source reloads, while migrations and
+the worker use the minimal runtime image. See [backend/README.md](backend/README.md)
+for the image stages and database-extension rationale.
 
 For backend-only development, follow [backend/README.md](backend/README.md).
 
