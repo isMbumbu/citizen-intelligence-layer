@@ -16,7 +16,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import validates
 from sqlmodel import Field, SQLModel
 
-from app.models.enums import InstitutionRole, ReportInstitutionRelationship
+from app.models.enums import (
+    ClaimReviewRequestType,
+    InstitutionRole,
+    ReportInstitutionRelationship,
+)
 
 
 def utc_now() -> datetime:
@@ -244,6 +248,48 @@ class ClaimSource(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+
+
+class ClaimReviewRequest(SQLModel, table=True):
+    """Append-only internal request to correct or review one material claim."""
+
+    __tablename__: ClassVar[str] = "claim_review_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "request_type IN ('CORRECTION', 'REVIEW_APPEAL')",
+            name="ck_claim_review_requests_request_type",
+        ),
+        CheckConstraint(
+            "char_length(btrim(content)) > 0 AND char_length(content) <= 4000",
+            name="ck_claim_review_requests_content",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    claim_id: UUID = Field(foreign_key="claims.id")
+    request_type: ClaimReviewRequestType
+    content: str = Field(max_length=4000)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+    def __init__(self, **data: Any) -> None:
+        if isinstance(data.get("content"), str):
+            data["content"] = self.normalize_content(data["content"])
+        super().__init__(**data)
+
+    @field_validator("content")
+    @classmethod
+    def normalize_content(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or len(normalized) > 4000:
+            raise ValueError("Claim review request content is invalid.")
+        return normalized
+
+    @validates("content")
+    def validate_content_assignment(self, key: str, value: str) -> str:
+        return self.normalize_content(value)
 
 
 class FinancialRecord(SQLModel, table=True):

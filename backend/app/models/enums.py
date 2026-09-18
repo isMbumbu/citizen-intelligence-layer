@@ -32,6 +32,11 @@ class ClaimKind(StrEnum):
     VERIFICATION = "VERIFICATION"
 
 
+class ClaimReviewRequestType(StrEnum):
+    CORRECTION = "CORRECTION"
+    REVIEW_APPEAL = "REVIEW_APPEAL"
+
+
 class VerificationStatus(StrEnum):
     UNVERIFIED = "UNVERIFIED"
     PARTIALLY_VERIFIED = "PARTIALLY_VERIFIED"
