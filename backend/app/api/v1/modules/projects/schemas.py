@@ -154,7 +154,20 @@ class FinancialAnomalyResponse(BaseModel):
     supporting_claims: list[ClaimReferenceResponse]
 
 
-AnomalyResponse = ProjectAnomalyResponse | FinancialAnomalyResponse
+class TimelineAnomalyResponse(BaseModel):
+    """A sourced timeline review signal, not a verification result."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    planned_completion_date: date
+    supporting_claims: list[ClaimReferenceResponse]
+
+
+AnomalyResponse = (
+    ProjectAnomalyResponse | FinancialAnomalyResponse | TimelineAnomalyResponse
+)
 
 
 class VerificationResponse(BaseModel):

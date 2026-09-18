@@ -1,5 +1,6 @@
 """Application functions for public-project exploration and review flags."""
 
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from app.api.v1.modules.projects.schemas import (
     ProjectPageResponse,
     ProjectSubtypeLabelResponse,
     SourceReferenceResponse,
+    TimelineAnomalyResponse,
     TimelineResponse,
     VerificationResponse,
 )
@@ -138,7 +140,11 @@ async def get_project_detail(
             {claim.id for claim in claims},
         )
         verification_source = await _verification_source(session, verification)
-        anomalies = await _derive_project_anomalies(session, project_id)
+        anomalies = await _derive_project_anomalies(
+            session,
+            project_id,
+            project=project,
+        )
     except HTTPException:
         raise
     except Exception as error:
@@ -250,16 +256,19 @@ async def get_project_anomalies(
     project_id: UUID,
 ) -> list[AnomalyResponse]:
     """Derive review flags only from sourced progress and financial records."""
-    await _project_or_404(session, project_id)
-    return await _derive_project_anomalies(session, project_id)
+    project = await _project_or_404(session, project_id)
+    return await _derive_project_anomalies(session, project_id, project=project)
 
 
 async def _derive_project_anomalies(
     session: AsyncSession,
     project_id: UUID,
+    *,
+    project: Project | None = None,
 ) -> list[AnomalyResponse]:
     """Derive review flags from sourced progress and financial records."""
     try:
+        project = project or await _project_or_404(session, project_id)
         records = await finance_repository.list_for_project(session, project_id)
         progress = await repository.get_latest_progress(session, project_id)
         records_by_kind = {record.kind: record for record in records}
@@ -326,9 +335,43 @@ async def _derive_project_anomalies(
                 evidence_by_claim,
             )
         )
+    timeline_signal = _timeline_past_due_signal(project)
+    if timeline_signal is not None:
+        signals.append(timeline_signal)
     if signals:
         logger.info("Derived project review flags for project id=%s", project_id)
     return signals
+
+
+def _timeline_past_due_signal(
+    project: Project,
+) -> TimelineAnomalyResponse | None:
+    """Return the approved project-level past-due timeline signal."""
+    planned_completion_date = getattr(project, "planned_completion_date", None)
+    if project.status != ProjectStatus.IN_PROGRESS.value:
+        return None
+    if planned_completion_date is None:
+        return None
+    if project.planned_start_date > planned_completion_date:
+        return None
+    if (
+        project.actual_start_date is not None
+        and project.actual_start_date > planned_completion_date
+    ):
+        return None
+    if datetime.now(UTC).date() <= planned_completion_date:
+        return None
+    return TimelineAnomalyResponse(
+        type="TIMELINE_PAST_DUE",
+        status="REVIEW_REQUIRED",
+        message=(
+            "The project is past its planned completion date without a recorded "
+            "completion date. This may warrant verification."
+        ),
+        requires_verification=True,
+        planned_completion_date=planned_completion_date,
+        supporting_claims=[],
+    )
 
 
 def _financial_anomaly_signals(
