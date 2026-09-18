@@ -134,8 +134,15 @@ async def test_non_public_evidence_is_denied(
             AsyncMock(), evidence.id, storage=storage
         )
 
-    assert error.value.status_code == 401
-    assert error.value.detail == "Authentication is required."
+    if values.get("moderation_state") in {
+        EvidenceModerationState.HIDDEN.value,
+        EvidenceModerationState.REMOVED.value,
+    }:
+        assert error.value.status_code == 404
+        assert error.value.detail == "Evidence not found."
+    else:
+        assert error.value.status_code == 401
+        assert error.value.detail == "Authentication is required."
     assert storage.read_keys == []
 
 
@@ -193,6 +200,182 @@ async def test_protected_evidence_with_permission_proceeds(
 
     assert download.content == b"protected-bytes"
     assert storage.read_keys == [evidence.storage_key]
+
+
+async def test_protected_metadata_requires_trusted_actor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence = _evidence(visibility=EvidenceVisibility.PRIVATE.value)
+    monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
+
+    with pytest.raises(HTTPException) as error:
+        await evidence_service.get_evidence(AsyncMock(), evidence.id)
+
+    assert error.value.status_code == 401
+    assert error.value.detail == "Authentication is required."
+
+
+async def test_protected_metadata_requires_explicit_permission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence = _evidence(visibility=EvidenceVisibility.PRIVATE.value)
+    monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
+
+    with pytest.raises(HTTPException) as error:
+        await evidence_service.get_evidence(
+            AsyncMock(),
+            evidence.id,
+            actor=CurrentModerator(uuid4(), frozenset()),
+        )
+
+    assert error.value.status_code == 403
+    assert error.value.detail == "Protected evidence permission is required."
+
+
+async def test_protected_metadata_with_permission_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence = _evidence(visibility=EvidenceVisibility.PRIVATE.value)
+    monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
+
+    response = await evidence_service.get_evidence(
+        AsyncMock(),
+        evidence.id,
+        actor=CurrentModerator(
+            uuid4(),
+            frozenset({EVIDENCE_READ_PROTECTED_PERMISSION}),
+        ),
+    )
+
+    assert response.id == evidence.id
+    assert response.visibility is EvidenceVisibility.PRIVATE
+    assert not hasattr(response, "storage_key")
+
+
+async def test_public_metadata_remains_anonymously_accessible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence = _evidence(visibility=EvidenceVisibility.PUBLIC.value)
+    monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
+
+    response = await evidence_service.get_evidence(AsyncMock(), evidence.id)
+
+    assert response.id == evidence.id
+    assert response.visibility is EvidenceVisibility.PUBLIC
+    assert not hasattr(response, "storage_key")
+
+
+async def test_metadata_and_download_share_protected_retrieval_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence = _evidence(visibility=EvidenceVisibility.PRIVATE.value)
+    monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
+
+    for operation in (
+        lambda: evidence_service.get_evidence(AsyncMock(), evidence.id),
+        lambda: evidence_service.download_evidence(
+            AsyncMock(),
+            evidence.id,
+            storage=FakeStorage(),
+        ),
+    ):
+        with pytest.raises(HTTPException) as error:
+            await operation()
+        assert error.value.status_code == 401
+        assert error.value.detail == "Authentication is required."
+
+    for operation in (
+        lambda: evidence_service.get_evidence(
+            AsyncMock(),
+            evidence.id,
+            actor=CurrentModerator(uuid4(), frozenset()),
+        ),
+        lambda: evidence_service.download_evidence(
+            AsyncMock(),
+            evidence.id,
+            storage=FakeStorage(),
+            actor=CurrentModerator(uuid4(), frozenset()),
+        ),
+    ):
+        with pytest.raises(HTTPException) as error:
+            await operation()
+        assert error.value.status_code == 403
+        assert error.value.detail == "Protected evidence permission is required."
+
+
+@pytest.mark.parametrize(
+    ("moderation_state", "visible"),
+    [
+        (EvidenceModerationState.PENDING.value, True),
+        (EvidenceModerationState.FLAGGED.value, True),
+        (EvidenceModerationState.HIDDEN.value, False),
+        (EvidenceModerationState.REMOVED.value, False),
+    ],
+)
+async def test_moderation_state_controls_public_retrieval(
+    monkeypatch: pytest.MonkeyPatch,
+    moderation_state: str,
+    visible: bool,
+) -> None:
+    evidence = _evidence(
+        visibility=EvidenceVisibility.PUBLIC.value,
+        moderation_state=moderation_state,
+    )
+    monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
+
+    if visible:
+        metadata = await evidence_service.get_evidence(AsyncMock(), evidence.id)
+        download = await evidence_service.download_evidence(
+            AsyncMock(),
+            evidence.id,
+            storage=FakeStorage(b"public-bytes"),
+        )
+        assert metadata.id == evidence.id
+        assert download.content == b"public-bytes"
+    else:
+        for operation in (
+            lambda: evidence_service.get_evidence(AsyncMock(), evidence.id),
+            lambda: evidence_service.download_evidence(
+                AsyncMock(),
+                evidence.id,
+                storage=FakeStorage(),
+            ),
+        ):
+            with pytest.raises(HTTPException) as error:
+                await operation()
+            assert error.value.status_code == 404
+            assert error.value.detail == "Evidence not found."
+
+
+async def test_deleted_evidence_is_not_publicly_retrievable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evidence = _evidence(is_deleted=True)
+    monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
+
+    for operation in (
+        lambda: evidence_service.get_evidence(AsyncMock(), evidence.id),
+        lambda: evidence_service.download_evidence(
+            AsyncMock(),
+            evidence.id,
+            storage=FakeStorage(),
+        ),
+    ):
+        with pytest.raises(HTTPException) as error:
+            await operation()
+        assert error.value.status_code == 401
+        assert error.value.detail == "Authentication is required."
+
+
+async def test_storage_key_manipulation_remains_confined_to_backend_root(
+    tmp_path: Path,
+) -> None:
+    from app.core.storage import LocalEvidenceStorage
+
+    storage = LocalEvidenceStorage(str(tmp_path))
+    for unsafe_key in ("/absolute/path", "../outside", "../../outside"):
+        with pytest.raises(ValueError):
+            storage._path_for(unsafe_key)
 
 
 async def test_missing_evidence_returns_not_found(

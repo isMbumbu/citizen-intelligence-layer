@@ -237,6 +237,13 @@ async def get_evidence(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Evidence not found.",
         )
+    if evidence.is_deleted:
+        if actor is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication is required.",
+            )
+        require_evidence_read_protected_permission(actor)
     if not _is_publicly_retrievable(evidence):
         if actor is None:
             raise HTTPException(
@@ -268,6 +275,21 @@ async def download_evidence(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Evidence not found.",
         )
+    if evidence.moderation_state in {
+        EvidenceModerationState.HIDDEN.value,
+        EvidenceModerationState.REMOVED.value,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Evidence not found.",
+        )
+    if evidence.is_deleted:
+        if actor is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication is required.",
+            )
+        require_evidence_read_protected_permission(actor)
     if not _is_publicly_retrievable(evidence):
         if actor is None:
             raise HTTPException(
