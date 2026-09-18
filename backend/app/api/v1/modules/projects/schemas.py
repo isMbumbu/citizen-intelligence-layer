@@ -139,6 +139,24 @@ class ProjectAnomalyResponse(BaseModel):
     supporting_claims: list[ClaimReferenceResponse]
 
 
+class FinancialAnomalyResponse(BaseModel):
+    """A sourced financial review signal, not a verification result."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    spent_amount: Decimal
+    comparison_amount: Decimal
+    comparison_kind: str
+    currency: str
+    financial_period: str
+    supporting_claims: list[ClaimReferenceResponse]
+
+
+AnomalyResponse = ProjectAnomalyResponse | FinancialAnomalyResponse
+
+
 class VerificationResponse(BaseModel):
     status: VerificationStatus
     verification_date: datetime | None
@@ -166,5 +184,5 @@ class ProjectDetailResponse(BaseModel):
     timeline: TimelineResponse
     last_verified_at: datetime | None
     verification: VerificationResponse | None
-    anomalies: list[ProjectAnomalyResponse]
+    anomalies: list[AnomalyResponse]
     evidence: list[ClaimEvidenceResponse]
