@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.comments import service
@@ -14,6 +14,7 @@ from app.api.v1.modules.comments.schemas import (
     CommentReportResponse,
 )
 from app.core.database import get_session
+from app.core.rate_limit import RateLimitOperation, enforce_rate_limit
 
 router = APIRouter(tags=["citizen comments"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -28,8 +29,15 @@ async def create_project_comment(
     project_id: UUID,
     payload: CitizenCommentCreateRequest,
     session: SessionDep,
+    request: Request,
 ) -> CitizenCommentResponse:
     """Create one citizen-submitted comment on a project."""
+    await enforce_rate_limit(
+        request,
+        operation=RateLimitOperation.COMMENT,
+        target_type="project",
+        target_id=project_id,
+    )
     return await service.create_comment(session, project_id, payload)
 
 
@@ -54,6 +62,13 @@ async def report_project_comment(
     comment_id: UUID,
     payload: CommentReportCreateRequest,
     session: SessionDep,
+    request: Request,
 ) -> CommentReportResponse:
     """Report one citizen comment for later abuse or policy review."""
+    await enforce_rate_limit(
+        request,
+        operation=RateLimitOperation.REPORT,
+        target_type="comment",
+        target_id=comment_id,
+    )
     return await service.report_comment(session, comment_id, payload)

@@ -3,7 +3,16 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.evidence import service
@@ -12,6 +21,7 @@ from app.api.v1.modules.evidence.schemas import (
     EvidenceResponse,
 )
 from app.core.database import get_session
+from app.core.rate_limit import RateLimitOperation, enforce_rate_limit
 
 router = APIRouter(tags=["evidence"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -25,10 +35,17 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 async def create_comment_evidence(
     comment_id: UUID,
     session: SessionDep,
+    request: Request,
     uploader_id: UUID = Form(...),  # noqa: B008
     file: UploadFile = File(...),  # noqa: B008
 ) -> EvidenceResponse:
     """Validate and store one citizen evidence upload for a comment."""
+    await enforce_rate_limit(
+        request,
+        operation=RateLimitOperation.UPLOAD,
+        target_type="comment",
+        target_id=comment_id,
+    )
     return await service.upload_comment_evidence(session, comment_id, uploader_id, file)
 
 
@@ -40,10 +57,17 @@ async def create_comment_evidence(
 async def create_report_evidence_by_id(
     report_id: UUID,
     session: SessionDep,
+    request: Request,
     uploader_id: UUID = Form(...),  # noqa: B008
     file: UploadFile = File(...),  # noqa: B008
 ) -> EvidenceResponse:
     """Validate and store one citizen evidence upload for a report."""
+    await enforce_rate_limit(
+        request,
+        operation=RateLimitOperation.UPLOAD,
+        target_type="report",
+        target_id=report_id,
+    )
     return await service.upload_report_evidence_by_id(
         session, report_id, uploader_id, file
     )
@@ -57,11 +81,18 @@ async def create_report_evidence_by_id(
 async def create_project_evidence(
     project_id: UUID,
     session: SessionDep,
+    request: Request,
     uploader_id: UUID = Form(...),  # noqa: B008
     comment_id: UUID | None = Form(None),  # noqa: B008
     file: UploadFile = File(...),  # noqa: B008
 ) -> EvidenceResponse:
     """Validate and store one citizen evidence upload for a project."""
+    await enforce_rate_limit(
+        request,
+        operation=RateLimitOperation.UPLOAD,
+        target_type="project",
+        target_id=project_id,
+    )
     return await service.upload_project_evidence(
         session, project_id, uploader_id, comment_id, file
     )
@@ -76,11 +107,18 @@ async def create_report_evidence(
     project_id: UUID,
     report_id: UUID,
     session: SessionDep,
+    request: Request,
     uploader_id: UUID = Form(...),  # noqa: B008
     comment_id: UUID | None = Form(None),  # noqa: B008
     file: UploadFile = File(...),  # noqa: B008
 ) -> EvidenceResponse:
     """Validate and store one citizen evidence upload for an issue report."""
+    await enforce_rate_limit(
+        request,
+        operation=RateLimitOperation.UPLOAD,
+        target_type="report",
+        target_id=report_id,
+    )
     return await service.upload_report_evidence(
         session, project_id, report_id, uploader_id, comment_id, file
     )
