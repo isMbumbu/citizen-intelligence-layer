@@ -12,6 +12,7 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportDetailResponse,
     CitizenReportResponse,
     ReportingChannelResponse,
+    ReportInstitutionResponse,
 )
 from app.core.database import get_session
 
@@ -61,3 +62,16 @@ async def get_report_channels(
 ) -> list[ReportingChannelResponse]:
     """Return informational reporting channels without changing the report."""
     return await service.get_report_channels(session, report_id)
+
+
+@report_router.get(
+    "/{report_id}/institutions",
+    response_model=list[ReportInstitutionResponse],
+    summary="View institutions linked to a citizen report",
+)
+async def get_report_institutions(
+    report_id: UUID,
+    session: SessionDep,
+) -> list[ReportInstitutionResponse]:
+    """Return public-safe institution relationships for one report."""
+    return await service.get_report_institutions(session, report_id)

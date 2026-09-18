@@ -9,7 +9,9 @@ from app.core.logging import logger
 from app.models.vertical_slice import (
     CitizenIssueReport,
     CitizenReportStatusTransition,
+    Institution,
     ReportingChannel,
+    ReportInstitutionLink,
 )
 
 
@@ -92,6 +94,64 @@ async def list_matching_channels(
                 | (ReportingChannel.sub_county_id == sub_county_id)
                 | (ReportingChannel.county_id == county_id)
             ),
+        )
+    )
+    return list(result.all())
+
+
+async def get_institution(
+    session: AsyncSession,
+    institution_id: UUID,
+) -> Institution | None:
+    """Return one institution reference record by identifier."""
+    return await session.get(Institution, institution_id)
+
+
+async def get_report_institution_link(
+    session: AsyncSession,
+    report_id: UUID,
+    institution_id: UUID,
+    relationship_type: str,
+) -> ReportInstitutionLink | None:
+    """Return an existing report-institution relationship, if present."""
+    result = await session.exec(
+        select(ReportInstitutionLink).where(
+            ReportInstitutionLink.report_id == report_id,
+            ReportInstitutionLink.institution_id == institution_id,
+            ReportInstitutionLink.relationship_type == relationship_type,
+        )
+    )
+    return result.first()
+
+
+async def create_report_institution_link(
+    session: AsyncSession,
+    link: ReportInstitutionLink,
+) -> ReportInstitutionLink:
+    """Persist one report-institution relationship."""
+    try:
+        session.add(link)
+        await session.commit()
+        await session.refresh(link)
+    except Exception:
+        await session.rollback()
+        logger.exception("Unable to link report to institution")
+        raise
+    return link
+
+
+async def list_report_institution_links(
+    session: AsyncSession,
+    report_id: UUID,
+) -> list[tuple[ReportInstitutionLink, Institution]]:
+    """Return report institution relationships with public reference data."""
+    result = await session.exec(
+        select(ReportInstitutionLink, Institution)
+        .join(Institution)
+        .where(ReportInstitutionLink.report_id == report_id)
+        .order_by(
+            col(ReportInstitutionLink.created_at),
+            col(ReportInstitutionLink.id),
         )
     )
     return list(result.all())

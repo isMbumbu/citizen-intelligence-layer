@@ -4,6 +4,7 @@ from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.civic_action import repository
@@ -13,15 +14,21 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportResponse,
     CitizenReportStatusHistoryResponse,
     ReportingChannelResponse,
+    ReportInstitutionResponse,
 )
 from app.api.v1.modules.geography import repository as geography_repository
 from app.api.v1.modules.projects import repository as projects_repository
 from app.core.logging import logger
-from app.models.enums import ReportCategory, ReportStatus
+from app.models.enums import (
+    ReportCategory,
+    ReportInstitutionRelationship,
+    ReportStatus,
+)
 from app.models.vertical_slice import (
     CitizenIssueReport,
     CitizenReportStatusTransition,
     ReportingChannel,
+    ReportInstitutionLink,
 )
 
 _REPORT_TRANSITIONS: dict[ReportStatus, ReportStatus] = {
@@ -208,6 +215,83 @@ async def get_report_channels(
     return [_channel_response(channel) for channel in selected]
 
 
+async def link_report_to_institution(
+    session: AsyncSession,
+    report_id: UUID,
+    institution_id: UUID,
+    relationship_type: ReportInstitutionRelationship,
+) -> ReportInstitutionLink:
+    """Create one internal report-institution relationship without status changes."""
+    report = await repository.get(session, report_id)
+    if report is None:
+        logger.info("Institution link report was not found id=%s", report_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+    institution = await repository.get_institution(session, institution_id)
+    if institution is None:
+        logger.info("Institution link target was not found id=%s", institution_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Institution not found.",
+        )
+    if not institution.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Institution is inactive.",
+        )
+    existing = await repository.get_report_institution_link(
+        session,
+        report_id,
+        institution_id,
+        relationship_type.value,
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Report is already linked to this institution.",
+        )
+    link = ReportInstitutionLink(
+        report_id=report_id,
+        institution_id=institution_id,
+        relationship_type=relationship_type,
+    )
+    try:
+        return await repository.create_report_institution_link(session, link)
+    except IntegrityError as error:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Report is already linked to this institution.",
+        ) from error
+
+
+async def get_report_institutions(
+    session: AsyncSession,
+    report_id: UUID,
+) -> list[ReportInstitutionResponse]:
+    """Return public-safe institution relationships for one report."""
+    report = await repository.get(session, report_id)
+    if report is None:
+        logger.info("Report institution lookup target was not found id=%s", report_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+    relationships = await repository.list_report_institution_links(session, report_id)
+    relationships.sort(key=lambda item: (item[0].created_at, str(item[0].id)))
+    return [
+        ReportInstitutionResponse(
+            institution_id=institution.id,
+            institution_name=institution.name,
+            institution_role=institution.role,
+            relationship_type=link.relationship_type,
+        )
+        for link, institution in relationships
+    ]
+
+
 def _most_specific_channels(
     channels: list[ReportingChannel],
     ward_id: UUID,
@@ -224,8 +308,7 @@ def _most_specific_channels(
         matching = [
             channel
             for channel in channels
-            if channel.is_active
-            and matches_geography(channel)
+            if channel.is_active and matches_geography(channel)
         ]
         if matching:
             return sorted(

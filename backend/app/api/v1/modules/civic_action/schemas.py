@@ -5,7 +5,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.enums import ReportCategory, ReportStatus
+from app.models.enums import (
+    InstitutionRole,
+    ReportCategory,
+    ReportInstitutionRelationship,
+    ReportStatus,
+)
 
 
 class CitizenReportCreateRequest(BaseModel):
@@ -66,3 +71,12 @@ class ReportingChannelResponse(BaseModel):
     destination: str
     display_label: str | None
     priority: int
+
+
+class ReportInstitutionResponse(BaseModel):
+    """Public-safe institution relationship for one citizen report."""
+
+    institution_id: UUID
+    institution_name: str
+    institution_role: InstitutionRole
+    relationship_type: ReportInstitutionRelationship

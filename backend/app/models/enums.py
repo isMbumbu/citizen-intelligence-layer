@@ -57,6 +57,17 @@ class ReportStatus(StrEnum):
     CLOSED = "CLOSED"
 
 
+class InstitutionRole(StrEnum):
+    COUNTY_GOVERNMENT = "COUNTY_GOVERNMENT"
+    NATIONAL_GOVERNMENT = "NATIONAL_GOVERNMENT"
+    PUBLIC_AGENCY = "PUBLIC_AGENCY"
+
+
+class ReportInstitutionRelationship(StrEnum):
+    ASSIGNED = "ASSIGNED"
+    REFERRED = "REFERRED"
+
+
 class CommentStatus(StrEnum):
     ACTIVE = "ACTIVE"
 

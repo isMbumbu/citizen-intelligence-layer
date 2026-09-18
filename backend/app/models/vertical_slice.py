@@ -2,9 +2,10 @@
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import ClassVar
+from typing import Any, ClassVar
 from uuid import UUID, uuid4
 
+from pydantic import field_validator
 from sqlalchemy import (
     CheckConstraint,
     Column,
@@ -12,7 +13,10 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     UniqueConstraint,
 )
+from sqlalchemy.orm import validates
 from sqlmodel import Field, SQLModel
+
+from app.models.enums import InstitutionRole, ReportInstitutionRelationship
 
 
 def utc_now() -> datetime:
@@ -361,3 +365,77 @@ class ReportingChannel(SQLModel, table=True):
     display_label: str | None = Field(default=None, max_length=160)
     priority: int = Field(default=100, ge=0, index=True)
     is_active: bool = Field(default=True, index=True)
+
+
+class Institution(SQLModel, table=True):
+    """Reference data for a public institution receiving report links."""
+
+    __tablename__: ClassVar[str] = "institutions"
+    __table_args__ = (UniqueConstraint("code", name="uq_institutions_code"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    code: str = Field(max_length=80, index=True)
+    name: str = Field(max_length=255)
+    role: InstitutionRole = Field(index=True)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+    def __init__(self, **data: Any) -> None:
+        if isinstance(data.get("code"), str):
+            data["code"] = self.normalize_code(data["code"])
+        if isinstance(data.get("name"), str):
+            data["name"] = self.normalize_name(data["name"])
+        super().__init__(**data)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("Institution code must not be empty.")
+        return normalized
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Institution name must not be empty.")
+        return normalized
+
+    @validates("code")
+    def validate_code_assignment(self, key: str, value: str) -> str:
+        return self.normalize_code(value)
+
+    @validates("name")
+    def validate_name_assignment(self, key: str, value: str) -> str:
+        return self.normalize_name(value)
+
+
+class ReportInstitutionLink(SQLModel, table=True):
+    """Append-only relationship history between reports and institutions."""
+
+    __tablename__: ClassVar[str] = "report_institution_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "report_id",
+            "institution_id",
+            "relationship_type",
+            name="uq_report_institution_relationship",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_id: UUID = Field(
+        foreign_key="citizen_issue_reports.id",
+        index=True,
+    )
+    institution_id: UUID = Field(foreign_key="institutions.id", index=True)
+    relationship_type: ReportInstitutionRelationship = Field(index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
