@@ -1,5 +1,6 @@
 """Application functions for the narrow citizen issue-reporting flow."""
 
+from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -11,13 +12,16 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportDetailResponse,
     CitizenReportResponse,
     CitizenReportStatusHistoryResponse,
+    ReportingChannelResponse,
 )
+from app.api.v1.modules.geography import repository as geography_repository
 from app.api.v1.modules.projects import repository as projects_repository
 from app.core.logging import logger
 from app.models.enums import ReportCategory, ReportStatus
 from app.models.vertical_slice import (
     CitizenIssueReport,
     CitizenReportStatusTransition,
+    ReportingChannel,
 )
 
 _REPORT_TRANSITIONS: dict[ReportStatus, ReportStatus] = {
@@ -156,4 +160,88 @@ async def transition_report_status(
         category=ReportCategory(report.category),
         status=ReportStatus(report.status),
         submitted_at=report.submitted_at,
+    )
+
+
+async def get_report_channels(
+    session: AsyncSession,
+    report_id: UUID,
+) -> list[ReportingChannelResponse]:
+    """Return the most specific active reporting channels for one report."""
+    report = await repository.get(session, report_id)
+    if report is None:
+        logger.info("Report channel lookup target was not found id=%s", report_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+    project = await projects_repository.get(session, report.project_id)
+    if project is None:
+        logger.info("Report channel project was not found id=%s", report.project_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found.",
+        )
+    location = await geography_repository.get_location_for_ward(
+        session, project.ward_id
+    )
+    if location is None:
+        logger.info("Report channel project location was not found id=%s", project.id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project location not found.",
+        )
+    county, sub_county, ward = location
+    channels = await repository.list_matching_channels(
+        session,
+        report.category,
+        county.id,
+        sub_county.id,
+        ward.id,
+    )
+    channels = [
+        channel
+        for channel in channels
+        if channel.is_active and channel.issue_category == report.category
+    ]
+    selected = _most_specific_channels(channels, ward.id, sub_county.id, county.id)
+    return [_channel_response(channel) for channel in selected]
+
+
+def _most_specific_channels(
+    channels: list[ReportingChannel],
+    ward_id: UUID,
+    sub_county_id: UUID,
+    county_id: UUID,
+) -> list[ReportingChannel]:
+    """Select one geography level and order its channels deterministically."""
+    geography_matches: tuple[Callable[[ReportingChannel], bool], ...] = (
+        lambda channel: channel.ward_id == ward_id,
+        lambda channel: channel.sub_county_id == sub_county_id,
+        lambda channel: channel.county_id == county_id,
+    )
+    for matches_geography in geography_matches:
+        matching = [
+            channel
+            for channel in channels
+            if channel.is_active
+            and matches_geography(channel)
+        ]
+        if matching:
+            return sorted(
+                matching,
+                key=lambda channel: (channel.priority, str(channel.id)),
+            )
+    return []
+
+
+def _channel_response(channel: ReportingChannel) -> ReportingChannelResponse:
+    """Convert one reporting channel to its public API contract."""
+    return ReportingChannelResponse(
+        id=channel.id,
+        office_name=channel.office_name,
+        channel_type=channel.channel_type,
+        destination=channel.destination,
+        display_label=channel.display_label,
+        priority=channel.priority,
     )

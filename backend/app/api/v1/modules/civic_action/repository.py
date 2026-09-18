@@ -9,6 +9,7 @@ from app.core.logging import logger
 from app.models.vertical_slice import (
     CitizenIssueReport,
     CitizenReportStatusTransition,
+    ReportingChannel,
 )
 
 
@@ -72,3 +73,25 @@ async def update_status(
         raise
     logger.info("Updated citizen report status id=%s", report.id)
     return report
+
+
+async def list_matching_channels(
+    session: AsyncSession,
+    issue_category: str,
+    county_id: UUID,
+    sub_county_id: UUID,
+    ward_id: UUID,
+) -> list[ReportingChannel]:
+    """Return active category channels at any matching geography level."""
+    result = await session.exec(
+        select(ReportingChannel).where(
+            ReportingChannel.issue_category == issue_category,
+            col(ReportingChannel.is_active).is_(True),
+            (
+                (ReportingChannel.ward_id == ward_id)
+                | (ReportingChannel.sub_county_id == sub_county_id)
+                | (ReportingChannel.county_id == county_id)
+            ),
+        )
+    )
+    return list(result.all())

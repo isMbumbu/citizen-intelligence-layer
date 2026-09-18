@@ -5,7 +5,13 @@ from decimal import Decimal
 from typing import ClassVar
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKeyConstraint, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKeyConstraint,
+    UniqueConstraint,
+)
 from sqlmodel import Field, SQLModel
 
 
@@ -319,3 +325,39 @@ class CitizenReportStatusTransition(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+
+
+class ReportingChannel(SQLModel, table=True):
+    """Public reporting-channel reference data scoped to one geography level."""
+
+    __tablename__: ClassVar[str] = "reporting_channels"
+    __table_args__ = (
+        CheckConstraint(
+            "issue_category IN ('QUALITY', 'DELAY', 'ACCESS', 'SAFETY', 'OTHER')",
+            name="ck_reporting_channels_issue_category",
+        ),
+        CheckConstraint(
+            "num_nonnulls(county_id, sub_county_id, ward_id) = 1",
+            name="ck_reporting_channels_one_geography",
+        ),
+        CheckConstraint(
+            "priority >= 0",
+            name="ck_reporting_channels_priority",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    issue_category: str = Field(max_length=30, index=True)
+    county_id: UUID | None = Field(default=None, foreign_key="counties.id", index=True)
+    sub_county_id: UUID | None = Field(
+        default=None,
+        foreign_key="sub_counties.id",
+        index=True,
+    )
+    ward_id: UUID | None = Field(default=None, foreign_key="wards.id", index=True)
+    office_name: str = Field(max_length=160)
+    channel_type: str = Field(max_length=40)
+    destination: str = Field(max_length=512)
+    display_label: str | None = Field(default=None, max_length=160)
+    priority: int = Field(default=100, ge=0, index=True)
+    is_active: bool = Field(default=True, index=True)

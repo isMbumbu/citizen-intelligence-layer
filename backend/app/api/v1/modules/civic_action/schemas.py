@@ -55,3 +55,14 @@ class CitizenReportDetailResponse(BaseModel):
     status: ReportStatus
     submitted_at: datetime
     status_history: list[CitizenReportStatusHistoryResponse]
+
+
+class ReportingChannelResponse(BaseModel):
+    """Citizen-facing information for one reporting channel."""
+
+    id: UUID
+    office_name: str
+    channel_type: str
+    destination: str
+    display_label: str | None
+    priority: int
