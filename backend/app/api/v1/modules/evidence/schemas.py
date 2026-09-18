@@ -37,7 +37,6 @@ class EvidenceResponse(BaseModel):
     mime_type: str
     file_size_bytes: int
     checksum_sha256: str
-    storage_key: str
     moderation_state: EvidenceModerationState
     processing_state: EvidenceProcessingState
     visibility: EvidenceVisibility

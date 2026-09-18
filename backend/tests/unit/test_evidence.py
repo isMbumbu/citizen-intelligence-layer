@@ -251,7 +251,7 @@ async def test_evidence_metadata_can_be_retrieved_without_file_content(
     response = await evidence_service.get_evidence(AsyncMock(), EVIDENCE_ID)
 
     assert response.id == EVIDENCE_ID
-    assert response.storage_key == "evidence/generated-key"
+    assert not hasattr(response, "storage_key")
     assert not hasattr(response, "file_content")
 
 

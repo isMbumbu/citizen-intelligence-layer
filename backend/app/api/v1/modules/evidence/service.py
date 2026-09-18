@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import re
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -37,6 +38,15 @@ from app.models.evidence import (
     EvidenceRecord,
 )
 from app.models.vertical_slice import CitizenIssueReport
+
+
+@dataclass(frozen=True)
+class EvidenceDownload:
+    """Safe file payload and display metadata for a public evidence download."""
+
+    content: bytes
+    mime_type: str
+    filename: str
 
 
 async def create_project_evidence(
@@ -220,6 +230,60 @@ async def get_evidence(
         evidence.processing_state,
     )
     return _response(evidence)
+
+
+async def download_evidence(
+    session: AsyncSession,
+    evidence_id: UUID,
+    *,
+    storage: EvidenceStorage | None = None,
+) -> EvidenceDownload:
+    """Return an explicitly public original evidence file for download."""
+    evidence = await repository.get(session, evidence_id)
+    if evidence is None:
+        logger.info("Evidence download record was not found id=%s", evidence_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Evidence not found.",
+        )
+    if not _is_publicly_retrievable(evidence):
+        logger.info("Evidence download was denied id=%s", evidence_id)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Evidence is not publicly retrievable.",
+        )
+
+    try:
+        content = await (storage or get_evidence_storage()).read(
+            evidence.storage_key,
+            settings.evidence_max_size_bytes,
+        )
+    except FileNotFoundError as error:
+        logger.warning(
+            "Evidence download object was not found id=%s error_type=%s",
+            evidence_id,
+            type(error).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Evidence file not found.",
+        ) from error
+    except Exception as error:
+        logger.error(
+            "Evidence download failed id=%s error_type=%s",
+            evidence_id,
+            type(error).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve evidence file.",
+        ) from error
+
+    return EvidenceDownload(
+        content=content,
+        mime_type=evidence.mime_type,
+        filename=_sanitize_filename(evidence.original_filename),
+    )
 
 
 async def get_processing(
@@ -665,10 +729,22 @@ def _response(evidence: EvidenceRecord) -> EvidenceResponse:
         mime_type=evidence.mime_type,
         file_size_bytes=evidence.file_size_bytes,
         checksum_sha256=evidence.checksum_sha256,
-        storage_key=evidence.storage_key,
         moderation_state=EvidenceModerationState(evidence.moderation_state),
         processing_state=EvidenceProcessingState(evidence.processing_state),
         visibility=EvidenceVisibility(evidence.visibility),
         is_deleted=evidence.is_deleted,
         uploaded_at=evidence.uploaded_at,
+    )
+
+
+def _is_publicly_retrievable(evidence: EvidenceRecord) -> bool:
+    """Return whether an evidence record is safe for unauthenticated retrieval."""
+    return (
+        not evidence.is_deleted
+        and evidence.visibility == EvidenceVisibility.PUBLIC.value
+        and evidence.moderation_state
+        not in {
+            EvidenceModerationState.HIDDEN.value,
+            EvidenceModerationState.REMOVED.value,
+        }
     )

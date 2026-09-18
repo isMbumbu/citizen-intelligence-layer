@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.evidence import service
@@ -93,6 +93,22 @@ async def get_evidence(
 ) -> EvidenceResponse:
     """Return evidence metadata without retrieving uploaded file content."""
     return await service.get_evidence(session, evidence_id)
+
+
+@router.get("/evidence/{evidence_id}/download")
+async def download_evidence(
+    evidence_id: UUID,
+    session: SessionDep,
+) -> Response:
+    """Download the original file for explicitly public evidence."""
+    download = await service.download_evidence(session, evidence_id)
+    return Response(
+        content=download.content,
+        media_type=download.mime_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{download.filename}"',
+        },
+    )
 
 
 @router.get(
