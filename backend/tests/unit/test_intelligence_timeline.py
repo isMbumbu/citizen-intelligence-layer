@@ -15,6 +15,7 @@ from app.models.vertical_slice import (
     FinancialRecord,
     Project,
     ProjectProgress,
+    ProjectVerification,
     Source,
     SourceRecord,
 )
@@ -45,6 +46,16 @@ def _project(
     )
 
 
+def _verification() -> ProjectVerification:
+    return ProjectVerification(
+        id=uuid4(),
+        project_id=PROJECT_ID,
+        status="VERIFIED",
+        notes="Synthetic verification.",
+        recorded_at=datetime(2026, 6, 4, tzinfo=UTC),
+    )
+
+
 async def _lookup(
     monkeypatch: pytest.MonkeyPatch,
     project: Project,
@@ -60,6 +71,16 @@ async def _lookup(
         projects_service.repository,
         "get_latest_progress",
         AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        projects_service.sources_repository,
+        "list_claims_for_project",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        projects_service.verification_repository,
+        "get_latest_for_project",
+        AsyncMock(return_value=_verification()),
     )
     monkeypatch.setattr(
         projects_service.sources_repository,
@@ -207,6 +228,16 @@ async def test_timeline_signal_follows_existing_financial_signal_order(
         projects_service.finance_repository,
         "list_for_project",
         AsyncMock(return_value=records),
+    )
+    monkeypatch.setattr(
+        projects_service.sources_repository,
+        "list_claims_for_project",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        projects_service.verification_repository,
+        "get_latest_for_project",
+        AsyncMock(return_value=_verification()),
     )
     monkeypatch.setattr(
         projects_service.sources_repository,

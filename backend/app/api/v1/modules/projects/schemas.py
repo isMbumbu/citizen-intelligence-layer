@@ -165,8 +165,33 @@ class TimelineAnomalyResponse(BaseModel):
     supporting_claims: list[ClaimReferenceResponse]
 
 
+class ClaimProvenanceGapResponse(BaseModel):
+    """A review signal for an incomplete official claim source chain."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    claim_id: UUID
+    supporting_claims: list[ClaimReferenceResponse]
+
+
+class VerificationGapResponse(BaseModel):
+    """A review signal for a project without a verification record."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    supporting_claims: list[ClaimReferenceResponse]
+
+
 AnomalyResponse = (
-    ProjectAnomalyResponse | FinancialAnomalyResponse | TimelineAnomalyResponse
+    ProjectAnomalyResponse
+    | FinancialAnomalyResponse
+    | TimelineAnomalyResponse
+    | ClaimProvenanceGapResponse
+    | VerificationGapResponse
 )
 
 

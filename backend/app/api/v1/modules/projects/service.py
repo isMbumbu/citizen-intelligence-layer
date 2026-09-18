@@ -14,6 +14,7 @@ from app.api.v1.modules.projects import repository
 from app.api.v1.modules.projects.schemas import (
     AnomalyResponse,
     ClaimEvidenceResponse,
+    ClaimProvenanceGapResponse,
     ClaimReferenceResponse,
     ContractorResponse,
     FinancialAnomalyResponse,
@@ -30,6 +31,7 @@ from app.api.v1.modules.projects.schemas import (
     SourceReferenceResponse,
     TimelineAnomalyResponse,
     TimelineResponse,
+    VerificationGapResponse,
     VerificationResponse,
 )
 from app.api.v1.modules.sources import repository as sources_repository
@@ -271,6 +273,11 @@ async def _derive_project_anomalies(
         project = project or await _project_or_404(session, project_id)
         records = await finance_repository.list_for_project(session, project_id)
         progress = await repository.get_latest_progress(session, project_id)
+        claims = await sources_repository.list_claims_for_project(session, project_id)
+        verification = await verification_repository.get_latest_for_project(
+            session,
+            project_id,
+        )
         records_by_kind = {record.kind: record for record in records}
         allocated = records_by_kind.get(FinancialKind.ALLOCATED.value)
         spent = records_by_kind.get(FinancialKind.SPENT.value)
@@ -280,6 +287,7 @@ async def _derive_project_anomalies(
             for record in (progress, allocated, spent, contracted)
             if record is not None
         }
+        claim_ids.update(claim.id for claim in claims)
         evidence_by_claim = await sources_repository.evidence_for_claims(
             session,
             claim_ids,
@@ -338,8 +346,60 @@ async def _derive_project_anomalies(
     timeline_signal = _timeline_past_due_signal(project)
     if timeline_signal is not None:
         signals.append(timeline_signal)
+    signals.extend(
+        _claim_provenance_gap_signals(
+            claims,
+            evidence_by_claim,
+        )
+    )
+    if verification is None:
+        signals.append(
+            VerificationGapResponse(
+                type="DATA_GAP_VERIFICATION",
+                status="REVIEW_REQUIRED",
+                message=(
+                    "The project does not have a recorded verification. "
+                    "This missing information may warrant verification."
+                ),
+                requires_verification=True,
+                supporting_claims=[],
+            )
+        )
     if signals:
-        logger.info("Derived project review flags for project id=%s", project_id)
+        logger.info(
+            "Derived project review flags for project id=%s signal_count=%s "
+            "claim_provenance_gap_count=%s verification_gap=%s",
+            project_id,
+            len(signals),
+            sum(signal.type == "DATA_GAP_CLAIM_PROVENANCE" for signal in signals),
+            verification is None,
+        )
+    return signals
+
+
+def _claim_provenance_gap_signals(
+    claims: list[Claim],
+    evidence_by_claim: _EvidenceMap,
+) -> list[ClaimProvenanceGapResponse]:
+    """Build one review signal for each claim without usable provenance."""
+    signals: list[ClaimProvenanceGapResponse] = []
+    for claim in sorted(claims, key=lambda item: str(item.id)):
+        supporting_claim = _claim_reference(claim.id, evidence_by_claim)
+        if supporting_claim.sources:
+            continue
+        signals.append(
+            ClaimProvenanceGapResponse(
+                type="DATA_GAP_CLAIM_PROVENANCE",
+                status="REVIEW_REQUIRED",
+                message=(
+                    "The claim does not have complete official source provenance. "
+                    "This missing information may warrant verification."
+                ),
+                requires_verification=True,
+                claim_id=claim.id,
+                supporting_claims=[supporting_claim],
+            )
+        )
     return signals
 
 

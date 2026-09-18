@@ -16,6 +16,7 @@ from app.models.vertical_slice import (
     FinancialRecord,
     Project,
     ProjectProgress,
+    ProjectVerification,
     Source,
     SourceRecord,
 )
@@ -93,6 +94,16 @@ def _source_chain(claim_id: UUID) -> tuple[SourceRecord, Source]:
     )
 
 
+def _verification() -> ProjectVerification:
+    return ProjectVerification(
+        id=uuid4(),
+        project_id=PROJECT_ID,
+        status="VERIFIED",
+        notes="Synthetic verification.",
+        recorded_at=datetime(2026, 6, 4, tzinfo=UTC),
+    )
+
+
 async def _lookup(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -111,6 +122,16 @@ async def _lookup(
         projects_service.finance_repository,
         "list_for_project",
         AsyncMock(return_value=records),
+    )
+    monkeypatch.setattr(
+        projects_service.sources_repository,
+        "list_claims_for_project",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        projects_service.verification_repository,
+        "get_latest_for_project",
+        AsyncMock(return_value=_verification()),
     )
     evidence = {claim_id: [_source_chain(claim_id)] for claim_id in sourced_claim_ids}
     monkeypatch.setattr(
