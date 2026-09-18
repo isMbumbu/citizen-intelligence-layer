@@ -11,6 +11,7 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportCreateRequest,
     CitizenReportDetailResponse,
     CitizenReportResponse,
+    InstitutionResponseResponse,
     ReportingChannelResponse,
     ReportInstitutionResponse,
 )
@@ -75,3 +76,16 @@ async def get_report_institutions(
 ) -> list[ReportInstitutionResponse]:
     """Return public-safe institution relationships for one report."""
     return await service.get_report_institutions(session, report_id)
+
+
+@report_router.get(
+    "/{report_id}/responses",
+    response_model=list[InstitutionResponseResponse],
+    summary="View institution responses for a citizen report",
+)
+async def get_report_responses(
+    report_id: UUID,
+    session: SessionDep,
+) -> list[InstitutionResponseResponse]:
+    """Return public-safe institution responses for one report."""
+    return await service.get_report_responses(session, report_id)

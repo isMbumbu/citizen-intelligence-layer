@@ -10,6 +10,7 @@ from app.models.vertical_slice import (
     CitizenIssueReport,
     CitizenReportStatusTransition,
     Institution,
+    InstitutionResponse,
     ReportingChannel,
     ReportInstitutionLink,
 )
@@ -152,6 +153,61 @@ async def list_report_institution_links(
         .order_by(
             col(ReportInstitutionLink.created_at),
             col(ReportInstitutionLink.id),
+        )
+    )
+    return list(result.all())
+
+
+async def get_report_institution_link_for_response(
+    session: AsyncSession,
+    report_id: UUID,
+    institution_id: UUID,
+) -> ReportInstitutionLink | None:
+    """Return the deterministic existing link eligible for one response."""
+    result = await session.exec(
+        select(ReportInstitutionLink)
+        .where(
+            ReportInstitutionLink.report_id == report_id,
+            ReportInstitutionLink.institution_id == institution_id,
+        )
+        .order_by(
+            col(ReportInstitutionLink.created_at),
+            col(ReportInstitutionLink.id),
+        )
+        .limit(1)
+    )
+    return result.first()
+
+
+async def create_institution_response(
+    session: AsyncSession,
+    response: InstitutionResponse,
+) -> InstitutionResponse:
+    """Persist one append-only institution response."""
+    try:
+        session.add(response)
+        await session.commit()
+        await session.refresh(response)
+    except Exception:
+        await session.rollback()
+        logger.exception("Unable to store institution response")
+        raise
+    return response
+
+
+async def list_institution_responses(
+    session: AsyncSession,
+    report_id: UUID,
+) -> list[tuple[InstitutionResponse, ReportInstitutionLink, Institution]]:
+    """Return report responses with their public institution relationship data."""
+    result = await session.exec(
+        select(InstitutionResponse, ReportInstitutionLink, Institution)
+        .join(ReportInstitutionLink)
+        .join(Institution)
+        .where(ReportInstitutionLink.report_id == report_id)
+        .order_by(
+            col(InstitutionResponse.created_at),
+            col(InstitutionResponse.id),
         )
     )
     return list(result.all())

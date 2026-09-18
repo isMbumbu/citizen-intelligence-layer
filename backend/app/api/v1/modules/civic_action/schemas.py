@@ -80,3 +80,15 @@ class ReportInstitutionResponse(BaseModel):
     institution_name: str
     institution_role: InstitutionRole
     relationship_type: ReportInstitutionRelationship
+
+
+class InstitutionResponseResponse(BaseModel):
+    """Public-safe institution response for one citizen report."""
+
+    response_id: UUID
+    institution_id: UUID
+    institution_name: str
+    institution_role: InstitutionRole
+    relationship_type: ReportInstitutionRelationship
+    content: str
+    created_at: datetime

@@ -13,6 +13,7 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportDetailResponse,
     CitizenReportResponse,
     CitizenReportStatusHistoryResponse,
+    InstitutionResponseResponse,
     ReportingChannelResponse,
     ReportInstitutionResponse,
 )
@@ -27,6 +28,7 @@ from app.models.enums import (
 from app.models.vertical_slice import (
     CitizenIssueReport,
     CitizenReportStatusTransition,
+    InstitutionResponse,
     ReportingChannel,
     ReportInstitutionLink,
 )
@@ -289,6 +291,85 @@ async def get_report_institutions(
             relationship_type=link.relationship_type,
         )
         for link, institution in relationships
+    ]
+
+
+async def create_institution_response(
+    session: AsyncSession,
+    report_id: UUID,
+    institution_id: UUID,
+    content: str,
+) -> InstitutionResponse:
+    """Create one internal response through an existing active institution link."""
+    report = await repository.get(session, report_id)
+    if report is None:
+        logger.info("Institution response report was not found id=%s", report_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+    institution = await repository.get_institution(session, institution_id)
+    if institution is None:
+        logger.info(
+            "Institution response institution was not found id=%s", institution_id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Institution not found.",
+        )
+    link = await repository.get_report_institution_link_for_response(
+        session,
+        report_id,
+        institution_id,
+    )
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Institution is not linked to this report.",
+        )
+    if not institution.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Institution is inactive.",
+        )
+    try:
+        response = InstitutionResponse(
+            report_institution_link_id=link.id,
+            content=content,
+        )
+    except (TypeError, ValueError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="The institution response is invalid.",
+        ) from error
+    return await repository.create_institution_response(session, response)
+
+
+async def get_report_responses(
+    session: AsyncSession,
+    report_id: UUID,
+) -> list[InstitutionResponseResponse]:
+    """Return public-safe institution responses for one report."""
+    report = await repository.get(session, report_id)
+    if report is None:
+        logger.info("Institution response lookup target was not found id=%s", report_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+    responses = await repository.list_institution_responses(session, report_id)
+    responses.sort(key=lambda item: (item[0].created_at, str(item[0].id)))
+    return [
+        InstitutionResponseResponse(
+            response_id=response.id,
+            institution_id=institution.id,
+            institution_name=institution.name,
+            institution_role=institution.role,
+            relationship_type=link.relationship_type,
+            content=response.content,
+            created_at=response.created_at,
+        )
+        for response, link, institution in responses
     ]
 
 

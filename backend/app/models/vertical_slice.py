@@ -439,3 +439,42 @@ class ReportInstitutionLink(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+
+
+class InstitutionResponse(SQLModel, table=True):
+    """Append-only public response from an institution linked to a report."""
+
+    __tablename__: ClassVar[str] = "institution_responses"
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(btrim(content)) > 0 AND char_length(content) <= 4000",
+            name="ck_institution_responses_content",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_institution_link_id: UUID = Field(
+        foreign_key="report_institution_links.id",
+    )
+    content: str = Field(max_length=4000)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+    def __init__(self, **data: Any) -> None:
+        if isinstance(data.get("content"), str):
+            data["content"] = self.normalize_content(data["content"])
+        super().__init__(**data)
+
+    @field_validator("content")
+    @classmethod
+    def normalize_content(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or len(normalized) > 4000:
+            raise ValueError("Institution response content is invalid.")
+        return normalized
+
+    @validates("content")
+    def validate_content_assignment(self, key: str, value: str) -> str:
+        return self.normalize_content(value)
