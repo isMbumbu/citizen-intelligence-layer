@@ -50,6 +50,11 @@ class ReportCategory(StrEnum):
 
 class ReportStatus(StrEnum):
     SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    REFERRED = "REFERRED"
+    RESPONDED = "RESPONDED"
+    RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
 
 
 class CommentStatus(StrEnum):

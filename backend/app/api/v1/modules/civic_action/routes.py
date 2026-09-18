@@ -9,6 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.v1.modules.civic_action import service
 from app.api.v1.modules.civic_action.schemas import (
     CitizenReportCreateRequest,
+    CitizenReportDetailResponse,
     CitizenReportResponse,
 )
 from app.core.database import get_session
@@ -30,3 +31,19 @@ async def submit_project_report(
 ) -> CitizenReportResponse:
     """Store a valid unauthenticated report for an existing project."""
     return await service.submit_report(session, project_id, payload)
+
+
+report_router = APIRouter(prefix="/reports", tags=["citizen reports"])
+
+
+@report_router.get(
+    "/{report_id}",
+    response_model=CitizenReportDetailResponse,
+    summary="View a citizen report status",
+)
+async def get_report(
+    report_id: UUID,
+    session: SessionDep,
+) -> CitizenReportDetailResponse:
+    """Return citizen-safe report status and lifecycle history."""
+    return await service.get_report(session, report_id)

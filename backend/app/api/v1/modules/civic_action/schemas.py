@@ -36,3 +36,22 @@ class CitizenReportResponse(BaseModel):
     category: ReportCategory
     status: ReportStatus
     submitted_at: datetime
+
+
+class CitizenReportStatusHistoryResponse(BaseModel):
+    """Public-safe representation of one report status transition."""
+
+    from_status: ReportStatus
+    to_status: ReportStatus
+    created_at: datetime
+
+
+class CitizenReportDetailResponse(BaseModel):
+    """Public-safe report status and lifecycle history."""
+
+    id: UUID
+    project_id: UUID
+    category: ReportCategory
+    status: ReportStatus
+    submitted_at: datetime
+    status_history: list[CitizenReportStatusHistoryResponse]

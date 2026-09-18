@@ -9,6 +9,7 @@ from app.models.evidence import (
 from app.models.service_state import ServiceState
 from app.models.vertical_slice import (
     CitizenIssueReport,
+    CitizenReportStatusTransition,
     Claim,
     ClaimSource,
     Contractor,
@@ -28,6 +29,7 @@ from app.models.vertical_slice import (
 
 __all__ = [
     "CitizenIssueReport",
+    "CitizenReportStatusTransition",
     "CitizenComment",
     "CommentReport",
     "EvidenceRecord",

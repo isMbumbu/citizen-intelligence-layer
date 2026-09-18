@@ -301,3 +301,21 @@ class CitizenIssueReport(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+
+
+class CitizenReportStatusTransition(SQLModel, table=True):
+    """Auditable status change for one citizen issue report."""
+
+    __tablename__: ClassVar[str] = "citizen_report_status_transitions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_id: UUID = Field(
+        foreign_key="citizen_issue_reports.id",
+        index=True,
+    )
+    from_status: str = Field(max_length=30)
+    to_status: str = Field(max_length=30)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
