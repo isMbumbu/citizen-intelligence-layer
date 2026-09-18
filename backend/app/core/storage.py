@@ -39,7 +39,7 @@ class LocalEvidenceStorage:
             return
 
     async def read(self, storage_key: str, max_bytes: int) -> bytes:
-        """Read a bounded object for internal processing only."""
+        """Read a bounded object through the backend storage boundary."""
         destination = self._path_for(storage_key)
 
         def read_bounded() -> bytes:

@@ -9,7 +9,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.v1.modules.civic_action import service
 from app.api.v1.modules.civic_action.schemas import (
     CitizenReportCreateRequest,
+    CitizenReportDetailResponse,
     CitizenReportResponse,
+    InstitutionResponseResponse,
+    ReportComparisonResponse,
+    ReportingChannelResponse,
+    ReportInstitutionResponse,
 )
 from app.core.database import get_session
 
@@ -30,3 +35,71 @@ async def submit_project_report(
 ) -> CitizenReportResponse:
     """Store a valid unauthenticated report for an existing project."""
     return await service.submit_report(session, project_id, payload)
+
+
+report_router = APIRouter(prefix="/reports", tags=["citizen reports"])
+
+
+@report_router.get(
+    "/{report_id}",
+    response_model=CitizenReportDetailResponse,
+    summary="View a citizen report status",
+)
+async def get_report(
+    report_id: UUID,
+    session: SessionDep,
+) -> CitizenReportDetailResponse:
+    """Return citizen-safe report status and lifecycle history."""
+    return await service.get_report(session, report_id)
+
+
+@report_router.get(
+    "/{report_id}/channels",
+    response_model=list[ReportingChannelResponse],
+    summary="View reporting channels for a citizen report",
+)
+async def get_report_channels(
+    report_id: UUID,
+    session: SessionDep,
+) -> list[ReportingChannelResponse]:
+    """Return informational reporting channels without changing the report."""
+    return await service.get_report_channels(session, report_id)
+
+
+@report_router.get(
+    "/{report_id}/institutions",
+    response_model=list[ReportInstitutionResponse],
+    summary="View institutions linked to a citizen report",
+)
+async def get_report_institutions(
+    report_id: UUID,
+    session: SessionDep,
+) -> list[ReportInstitutionResponse]:
+    """Return public-safe institution relationships for one report."""
+    return await service.get_report_institutions(session, report_id)
+
+
+@report_router.get(
+    "/{report_id}/responses",
+    response_model=list[InstitutionResponseResponse],
+    summary="View institution responses for a citizen report",
+)
+async def get_report_responses(
+    report_id: UUID,
+    session: SessionDep,
+) -> list[InstitutionResponseResponse]:
+    """Return public-safe institution responses for one report."""
+    return await service.get_report_responses(session, report_id)
+
+
+@report_router.get(
+    "/{report_id}/comparison",
+    response_model=ReportComparisonResponse,
+    summary="Compare a citizen issue with institution responses",
+)
+async def get_report_comparison(
+    report_id: UUID,
+    session: SessionDep,
+) -> ReportComparisonResponse:
+    """Return the original issue separately from institution responses."""
+    return await service.get_report_comparison(session, report_id)

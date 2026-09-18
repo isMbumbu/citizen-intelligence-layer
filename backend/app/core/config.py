@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     rabbitmq_url: str = "amqp://guest:guest@rabbitmq:5672//"
     celery_result_backend: str = "redis://redis:6379/1"
     celery_worker_concurrency: int = 2
+    rate_limit_key_prefix: str = "citizen-intelligence:ratelimit"
+    rate_limit_identity_secret: str = ""
+    rate_limit_comment_limit: int = 10
+    rate_limit_comment_window_seconds: int = 600
+    rate_limit_report_limit: int = 10
+    rate_limit_report_window_seconds: int = 600
+    rate_limit_upload_limit: int = 5
+    rate_limit_upload_window_seconds: int = 600
 
     evidence_storage_root: str = "/tmp/citizen-intelligence-evidence"
     evidence_max_size_bytes: int = 10 * 1024 * 1024
@@ -57,6 +65,21 @@ class Settings(BaseSettings):
             raise ValueError("LOG_LEVEL must be a standard Python logging level.")
         return normalized
 
+    @field_validator(
+        "rate_limit_comment_limit",
+        "rate_limit_comment_window_seconds",
+        "rate_limit_report_limit",
+        "rate_limit_report_window_seconds",
+        "rate_limit_upload_limit",
+        "rate_limit_upload_window_seconds",
+    )
+    @classmethod
+    def validate_rate_limit_value(cls, value: int) -> int:
+        """Require every rate-limit limit and window to be strictly positive."""
+        if value <= 0:
+            raise ValueError("Rate-limit settings must be greater than zero.")
+        return value
+
     @model_validator(mode="after")
     def validate_production_configuration(self) -> "Settings":
         """Reject known-unsafe defaults when deploying to production."""
@@ -67,6 +90,11 @@ class Settings(BaseSettings):
             raise ValueError("DEBUG must be false in production.")
         if len(self.jwt_secret) < 32:
             raise ValueError("JWT_SECRET must be at least 32 characters in production.")
+        if len(self.rate_limit_identity_secret) < 32:
+            raise ValueError(
+                "RATE_LIMIT_IDENTITY_SECRET must be at least 32 characters "
+                "in production."
+            )
         if not self.trusted_hosts or any(
             host in {"localhost", "127.0.0.1", "testserver", "*"}
             for host in self.trusted_hosts

@@ -1,5 +1,6 @@
 """Application functions for public-project exploration and review flags."""
 
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
@@ -11,9 +12,12 @@ from app.api.v1.modules.finance import repository as finance_repository
 from app.api.v1.modules.geography import repository as geography_repository
 from app.api.v1.modules.projects import repository
 from app.api.v1.modules.projects.schemas import (
+    AnomalyResponse,
     ClaimEvidenceResponse,
+    ClaimProvenanceGapResponse,
     ClaimReferenceResponse,
     ContractorResponse,
+    FinancialAnomalyResponse,
     FinancialFactResponse,
     FinancialSummaryResponse,
     LocationResponse,
@@ -25,7 +29,9 @@ from app.api.v1.modules.projects.schemas import (
     ProjectPageResponse,
     ProjectSubtypeLabelResponse,
     SourceReferenceResponse,
+    TimelineAnomalyResponse,
     TimelineResponse,
+    VerificationGapResponse,
     VerificationResponse,
 )
 from app.api.v1.modules.sources import repository as sources_repository
@@ -136,7 +142,11 @@ async def get_project_detail(
             {claim.id for claim in claims},
         )
         verification_source = await _verification_source(session, verification)
-        anomalies = await _derive_project_anomalies(session, project_id)
+        anomalies = await _derive_project_anomalies(
+            session,
+            project_id,
+            project=project,
+        )
     except HTTPException:
         raise
     except Exception as error:
@@ -246,45 +256,42 @@ async def get_project_verification(
 async def get_project_anomalies(
     session: AsyncSession,
     project_id: UUID,
-) -> list[ProjectAnomalyResponse]:
+) -> list[AnomalyResponse]:
     """Derive review flags only from sourced progress and financial records."""
-    await _project_or_404(session, project_id)
-    return await _derive_project_anomalies(session, project_id)
+    project = await _project_or_404(session, project_id)
+    return await _derive_project_anomalies(session, project_id, project=project)
 
 
 async def _derive_project_anomalies(
     session: AsyncSession,
     project_id: UUID,
-) -> list[ProjectAnomalyResponse]:
+    *,
+    project: Project | None = None,
+) -> list[AnomalyResponse]:
     """Derive review flags from sourced progress and financial records."""
     try:
+        project = project or await _project_or_404(session, project_id)
         records = await finance_repository.list_for_project(session, project_id)
         progress = await repository.get_latest_progress(session, project_id)
-        if progress is None:
-            return []
+        claims = await sources_repository.list_claims_for_project(session, project_id)
+        verification = await verification_repository.get_latest_for_project(
+            session,
+            project_id,
+        )
         records_by_kind = {record.kind: record for record in records}
         allocated = records_by_kind.get(FinancialKind.ALLOCATED.value)
         spent = records_by_kind.get(FinancialKind.SPENT.value)
-        if allocated is None or spent is None or allocated.amount <= 0:
-            return []
-
-        claim_ids = {progress.claim_id, allocated.claim_id, spent.claim_id}
+        contracted = records_by_kind.get(FinancialKind.CONTRACTED.value)
+        claim_ids = {
+            record.claim_id
+            for record in (progress, allocated, spent, contracted)
+            if record is not None
+        }
+        claim_ids.update(claim.id for claim in claims)
         evidence_by_claim = await sources_repository.evidence_for_claims(
             session,
             claim_ids,
         )
-        supporting_claims = [
-            _claim_reference(claim_id, evidence_by_claim)
-            for claim_id in sorted(claim_ids, key=str)
-        ]
-        if any(not claim.sources for claim in supporting_claims):
-            return []
-        spent_share = (spent.amount / allocated.amount * Decimal("100")).quantize(
-            _PERCENTAGE_QUANTUM,
-            rounding=ROUND_HALF_UP,
-        )
-        if progress.percentage - spent_share < _REVIEW_GAP_PERCENTAGE_POINTS:
-            return []
     except HTTPException:
         raise
     except Exception as error:
@@ -295,22 +302,200 @@ async def _derive_project_anomalies(
             detail="Unable to retrieve project review flags.",
         ) from error
 
-    logger.info("Derived progress-spend review flag for project id=%s", project_id)
-    return [
-        ProjectAnomalyResponse(
-            type="PROGRESS_SPEND_GAP",
-            status="REVIEW_REQUIRED",
-            message=(
-                "Reported project progress is substantially higher than the "
-                "share of the allocated budget recorded as spent. This may "
-                "warrant verification."
-            ),
-            requires_verification=True,
-            reported_progress_percentage=progress.percentage,
-            spent_budget_percentage=spent_share,
-            supporting_claims=supporting_claims,
+    signals: list[AnomalyResponse] = []
+    if progress is not None and allocated is not None and spent is not None:
+        progress_claims = _claim_reference(progress.claim_id, evidence_by_claim)
+        allocated_claims = _claim_reference(allocated.claim_id, evidence_by_claim)
+        spent_claims = _claim_reference(spent.claim_id, evidence_by_claim)
+        supporting_claims = sorted(
+            [progress_claims, allocated_claims, spent_claims],
+            key=lambda claim: str(claim.claim_id),
         )
-    ]
+        if all(claim.sources for claim in supporting_claims) and allocated.amount > 0:
+            spent_share = (spent.amount / allocated.amount * Decimal("100")).quantize(
+                _PERCENTAGE_QUANTUM,
+                rounding=ROUND_HALF_UP,
+            )
+            if progress.percentage - spent_share >= _REVIEW_GAP_PERCENTAGE_POINTS:
+                signals.append(
+                    ProjectAnomalyResponse(
+                        type="PROGRESS_SPEND_GAP",
+                        status="REVIEW_REQUIRED",
+                        message=(
+                            "Reported project progress is substantially higher "
+                            "than the share of the allocated budget recorded "
+                            "as spent. This may "
+                            "warrant verification."
+                        ),
+                        requires_verification=True,
+                        reported_progress_percentage=progress.percentage,
+                        spent_budget_percentage=spent_share,
+                        supporting_claims=supporting_claims,
+                    )
+                )
+
+    if spent is not None:
+        signals.extend(
+            _financial_anomaly_signals(
+                spent,
+                allocated,
+                contracted,
+                evidence_by_claim,
+            )
+        )
+    timeline_signal = _timeline_past_due_signal(project)
+    if timeline_signal is not None:
+        signals.append(timeline_signal)
+    signals.extend(
+        _claim_provenance_gap_signals(
+            claims,
+            evidence_by_claim,
+        )
+    )
+    if verification is None:
+        signals.append(
+            VerificationGapResponse(
+                type="DATA_GAP_VERIFICATION",
+                status="REVIEW_REQUIRED",
+                message=(
+                    "The project does not have a recorded verification. "
+                    "This missing information may warrant verification."
+                ),
+                requires_verification=True,
+                supporting_claims=[],
+            )
+        )
+    if signals:
+        logger.info(
+            "Derived project review flags for project id=%s signal_count=%s "
+            "claim_provenance_gap_count=%s verification_gap=%s",
+            project_id,
+            len(signals),
+            sum(signal.type == "DATA_GAP_CLAIM_PROVENANCE" for signal in signals),
+            verification is None,
+        )
+    return signals
+
+
+def _claim_provenance_gap_signals(
+    claims: list[Claim],
+    evidence_by_claim: _EvidenceMap,
+) -> list[ClaimProvenanceGapResponse]:
+    """Build one review signal for each claim without usable provenance."""
+    signals: list[ClaimProvenanceGapResponse] = []
+    for claim in sorted(claims, key=lambda item: str(item.id)):
+        supporting_claim = _claim_reference(claim.id, evidence_by_claim)
+        if supporting_claim.sources:
+            continue
+        signals.append(
+            ClaimProvenanceGapResponse(
+                type="DATA_GAP_CLAIM_PROVENANCE",
+                status="REVIEW_REQUIRED",
+                message=(
+                    "The claim does not have complete official source provenance. "
+                    "This missing information may warrant verification."
+                ),
+                requires_verification=True,
+                claim_id=claim.id,
+                supporting_claims=[supporting_claim],
+            )
+        )
+    return signals
+
+
+def _timeline_past_due_signal(
+    project: Project,
+) -> TimelineAnomalyResponse | None:
+    """Return the approved project-level past-due timeline signal."""
+    planned_completion_date = getattr(project, "planned_completion_date", None)
+    if project.status != ProjectStatus.IN_PROGRESS.value:
+        return None
+    if planned_completion_date is None:
+        return None
+    if project.planned_start_date > planned_completion_date:
+        return None
+    if (
+        project.actual_start_date is not None
+        and project.actual_start_date > planned_completion_date
+    ):
+        return None
+    if datetime.now(UTC).date() <= planned_completion_date:
+        return None
+    return TimelineAnomalyResponse(
+        type="TIMELINE_PAST_DUE",
+        status="REVIEW_REQUIRED",
+        message=(
+            "The project is past its planned completion date without a recorded "
+            "completion date. This may warrant verification."
+        ),
+        requires_verification=True,
+        planned_completion_date=planned_completion_date,
+        supporting_claims=[],
+    )
+
+
+def _financial_anomaly_signals(
+    spent: FinancialRecord,
+    allocated: FinancialRecord | None,
+    contracted: FinancialRecord | None,
+    evidence_by_claim: _EvidenceMap,
+) -> list[FinancialAnomalyResponse]:
+    """Build INT-002 financial signals from compatible sourced records."""
+    signals: list[FinancialAnomalyResponse] = []
+    for comparison, comparison_kind, signal_type, message in (
+        (
+            allocated,
+            FinancialKind.ALLOCATED.value,
+            "SPEND_OVER_ALLOCATION",
+            (
+                "Recorded spending exceeds the allocated amount. "
+                "This may warrant verification."
+            ),
+        ),
+        (
+            contracted,
+            FinancialKind.CONTRACTED.value,
+            "SPEND_OVER_CONTRACT",
+            (
+                "Recorded spending exceeds the contracted amount. "
+                "This may warrant verification."
+            ),
+        ),
+    ):
+        if comparison is None:
+            continue
+        if (
+            spent.amount <= 0
+            or comparison.amount <= 0
+            or spent.currency != comparison.currency
+            or spent.financial_period != comparison.financial_period
+            or spent.amount <= comparison.amount
+        ):
+            continue
+        claim_ids = sorted(
+            [spent.claim_id, comparison.claim_id],
+            key=str,
+        )
+        supporting_claims = [
+            _claim_reference(claim_id, evidence_by_claim) for claim_id in claim_ids
+        ]
+        if any(not claim.sources for claim in supporting_claims):
+            continue
+        signals.append(
+            FinancialAnomalyResponse(
+                type=signal_type,
+                status="REVIEW_REQUIRED",
+                message=message,
+                requires_verification=True,
+                spent_amount=spent.amount,
+                comparison_amount=comparison.amount,
+                comparison_kind=comparison_kind,
+                currency=spent.currency,
+                financial_period=spent.financial_period,
+                supporting_claims=supporting_claims,
+            )
+        )
+    return signals
 
 
 async def _list_item(

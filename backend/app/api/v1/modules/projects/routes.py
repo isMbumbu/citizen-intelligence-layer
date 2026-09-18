@@ -8,8 +8,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.projects import service
 from app.api.v1.modules.projects.schemas import (
+    AnomalyResponse,
     ClaimEvidenceResponse,
-    ProjectAnomalyResponse,
     ProjectDetailResponse,
     ProjectPageResponse,
     VerificationResponse,
@@ -90,12 +90,12 @@ async def get_project_verification(
 
 @router.get(
     "/{project_id}/anomalies",
-    response_model=list[ProjectAnomalyResponse],
+    response_model=list[AnomalyResponse],
     summary="View evidence-grounded review flags",
 )
 async def get_project_anomalies(
     project_id: UUID,
     session: SessionDep,
-) -> list[ProjectAnomalyResponse]:
+) -> list[AnomalyResponse]:
     """Return deterministic review flags, never misconduct allegations."""
     return await service.get_project_anomalies(session, project_id)

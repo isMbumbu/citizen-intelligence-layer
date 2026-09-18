@@ -114,10 +114,11 @@ async def test_valid_png_upload_generates_metadata_and_storage_key(
     assert response.mime_type == "image/png"
     assert response.file_size_bytes == len(content)
     assert response.checksum_sha256 == hashlib.sha256(content).hexdigest()
-    assert response.storage_key.startswith("evidence/")
-    assert response.storage_key.endswith(".png")
-    assert "photo.png" not in response.storage_key
-    assert storage.stored[response.storage_key] == content
+    storage_key = next(iter(storage.stored))
+    assert storage_key.startswith("evidence/")
+    assert storage_key.endswith(".png")
+    assert "photo.png" not in storage_key
+    assert storage.stored[storage_key] == content
 
 
 async def test_valid_pdf_upload_supports_report_association(
@@ -148,7 +149,7 @@ async def test_valid_pdf_upload_supports_report_association(
 
     assert response.report_id == REPORT_ID
     assert response.mime_type == "application/pdf"
-    assert response.storage_key.endswith(".pdf")
+    assert next(iter(storage.stored)).endswith(".pdf")
 
 
 def _report() -> CitizenIssueReport:
@@ -232,8 +233,9 @@ async def test_filename_is_sanitized_and_never_used_as_storage_path(
     )
 
     assert response.original_filename == "dangerous_name.png"
-    assert response.storage_key != response.original_filename
-    assert ".." not in response.storage_key
+    storage_key = next(iter(storage.stored))
+    assert storage_key != response.original_filename
+    assert ".." not in storage_key
 
 
 async def test_storage_failure_does_not_persist_metadata_or_leave_file(

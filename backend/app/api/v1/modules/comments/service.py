@@ -84,6 +84,15 @@ async def list_comments(
             detail="Project not found.",
         )
     comments = await repository.list_comments(session, project_id)
+    comments = [
+        comment
+        for comment in comments
+        if comment.moderation_state
+        not in {
+            CommentModerationState.HIDDEN.value,
+            CommentModerationState.REMOVED.value,
+        }
+    ]
     logger.info(
         "Listed %s citizen comment(s) for project id=%s", len(comments), project_id
     )

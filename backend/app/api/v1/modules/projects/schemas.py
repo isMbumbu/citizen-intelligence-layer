@@ -139,6 +139,62 @@ class ProjectAnomalyResponse(BaseModel):
     supporting_claims: list[ClaimReferenceResponse]
 
 
+class FinancialAnomalyResponse(BaseModel):
+    """A sourced financial review signal, not a verification result."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    spent_amount: Decimal
+    comparison_amount: Decimal
+    comparison_kind: str
+    currency: str
+    financial_period: str
+    supporting_claims: list[ClaimReferenceResponse]
+
+
+class TimelineAnomalyResponse(BaseModel):
+    """A sourced timeline review signal, not a verification result."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    planned_completion_date: date
+    supporting_claims: list[ClaimReferenceResponse]
+
+
+class ClaimProvenanceGapResponse(BaseModel):
+    """A review signal for an incomplete official claim source chain."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    claim_id: UUID
+    supporting_claims: list[ClaimReferenceResponse]
+
+
+class VerificationGapResponse(BaseModel):
+    """A review signal for a project without a verification record."""
+
+    type: str
+    status: str
+    message: str
+    requires_verification: bool
+    supporting_claims: list[ClaimReferenceResponse]
+
+
+AnomalyResponse = (
+    ProjectAnomalyResponse
+    | FinancialAnomalyResponse
+    | TimelineAnomalyResponse
+    | ClaimProvenanceGapResponse
+    | VerificationGapResponse
+)
+
+
 class VerificationResponse(BaseModel):
     status: VerificationStatus
     verification_date: datetime | None
@@ -166,5 +222,5 @@ class ProjectDetailResponse(BaseModel):
     timeline: TimelineResponse
     last_verified_at: datetime | None
     verification: VerificationResponse | None
-    anomalies: list[ProjectAnomalyResponse]
+    anomalies: list[AnomalyResponse]
     evidence: list[ClaimEvidenceResponse]

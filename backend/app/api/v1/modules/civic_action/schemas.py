@@ -5,7 +5,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.enums import ReportCategory, ReportStatus
+from app.models.enums import (
+    InstitutionRole,
+    ReportCategory,
+    ReportInstitutionRelationship,
+    ReportStatus,
+)
 
 
 class CitizenReportCreateRequest(BaseModel):
@@ -36,3 +41,70 @@ class CitizenReportResponse(BaseModel):
     category: ReportCategory
     status: ReportStatus
     submitted_at: datetime
+
+
+class CitizenReportStatusHistoryResponse(BaseModel):
+    """Public-safe representation of one report status transition."""
+
+    from_status: ReportStatus
+    to_status: ReportStatus
+    created_at: datetime
+
+
+class CitizenReportDetailResponse(BaseModel):
+    """Public-safe report status and lifecycle history."""
+
+    id: UUID
+    project_id: UUID
+    category: ReportCategory
+    status: ReportStatus
+    submitted_at: datetime
+    status_history: list[CitizenReportStatusHistoryResponse]
+
+
+class ReportingChannelResponse(BaseModel):
+    """Citizen-facing information for one reporting channel."""
+
+    id: UUID
+    office_name: str
+    channel_type: str
+    destination: str
+    display_label: str | None
+    priority: int
+
+
+class ReportInstitutionResponse(BaseModel):
+    """Public-safe institution relationship for one citizen report."""
+
+    institution_id: UUID
+    institution_name: str
+    institution_role: InstitutionRole
+    relationship_type: ReportInstitutionRelationship
+
+
+class InstitutionResponseResponse(BaseModel):
+    """Public-safe institution response for one citizen report."""
+
+    response_id: UUID
+    institution_id: UUID
+    institution_name: str
+    institution_role: InstitutionRole
+    relationship_type: ReportInstitutionRelationship
+    content: str
+    created_at: datetime
+
+
+class ReportIssueComparisonResponse(BaseModel):
+    """Public-safe original citizen issue for RESP-003 comparison."""
+
+    report_id: UUID
+    category: ReportCategory
+    description: str
+    submitted_at: datetime
+
+
+class ReportComparisonResponse(BaseModel):
+    """Separate public issue and institution-response comparison envelope."""
+
+    issue: ReportIssueComparisonResponse
+    responses: list[InstitutionResponseResponse]

@@ -2,11 +2,25 @@
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import ClassVar
+from typing import Any, ClassVar
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKeyConstraint, UniqueConstraint
+from pydantic import field_validator
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKeyConstraint,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import validates
 from sqlmodel import Field, SQLModel
+
+from app.models.enums import (
+    ClaimReviewRequestType,
+    InstitutionRole,
+    ReportInstitutionRelationship,
+)
 
 
 def utc_now() -> datetime:
@@ -236,6 +250,48 @@ class ClaimSource(SQLModel, table=True):
     )
 
 
+class ClaimReviewRequest(SQLModel, table=True):
+    """Append-only internal request to correct or review one material claim."""
+
+    __tablename__: ClassVar[str] = "claim_review_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "request_type IN ('CORRECTION', 'REVIEW_APPEAL')",
+            name="ck_claim_review_requests_request_type",
+        ),
+        CheckConstraint(
+            "char_length(btrim(content)) > 0 AND char_length(content) <= 4000",
+            name="ck_claim_review_requests_content",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    claim_id: UUID = Field(foreign_key="claims.id")
+    request_type: ClaimReviewRequestType
+    content: str = Field(max_length=4000)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+    def __init__(self, **data: Any) -> None:
+        if isinstance(data.get("content"), str):
+            data["content"] = self.normalize_content(data["content"])
+        super().__init__(**data)
+
+    @field_validator("content")
+    @classmethod
+    def normalize_content(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or len(normalized) > 4000:
+            raise ValueError("Claim review request content is invalid.")
+        return normalized
+
+    @validates("content")
+    def validate_content_assignment(self, key: str, value: str) -> str:
+        return self.normalize_content(value)
+
+
 class FinancialRecord(SQLModel, table=True):
     __tablename__: ClassVar[str] = "financial_records"
 
@@ -301,3 +357,170 @@ class CitizenIssueReport(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
+
+
+class CitizenReportStatusTransition(SQLModel, table=True):
+    """Auditable status change for one citizen issue report."""
+
+    __tablename__: ClassVar[str] = "citizen_report_status_transitions"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_id: UUID = Field(
+        foreign_key="citizen_issue_reports.id",
+        index=True,
+    )
+    from_status: str = Field(max_length=30)
+    to_status: str = Field(max_length=30)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+class ReportingChannel(SQLModel, table=True):
+    """Public reporting-channel reference data scoped to one geography level."""
+
+    __tablename__: ClassVar[str] = "reporting_channels"
+    __table_args__ = (
+        CheckConstraint(
+            "issue_category IN ('QUALITY', 'DELAY', 'ACCESS', 'SAFETY', 'OTHER')",
+            name="ck_reporting_channels_issue_category",
+        ),
+        CheckConstraint(
+            "num_nonnulls(county_id, sub_county_id, ward_id) = 1",
+            name="ck_reporting_channels_one_geography",
+        ),
+        CheckConstraint(
+            "priority >= 0",
+            name="ck_reporting_channels_priority",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    issue_category: str = Field(max_length=30, index=True)
+    county_id: UUID | None = Field(default=None, foreign_key="counties.id", index=True)
+    sub_county_id: UUID | None = Field(
+        default=None,
+        foreign_key="sub_counties.id",
+        index=True,
+    )
+    ward_id: UUID | None = Field(default=None, foreign_key="wards.id", index=True)
+    office_name: str = Field(max_length=160)
+    channel_type: str = Field(max_length=40)
+    destination: str = Field(max_length=512)
+    display_label: str | None = Field(default=None, max_length=160)
+    priority: int = Field(default=100, ge=0, index=True)
+    is_active: bool = Field(default=True, index=True)
+
+
+class Institution(SQLModel, table=True):
+    """Reference data for a public institution receiving report links."""
+
+    __tablename__: ClassVar[str] = "institutions"
+    __table_args__ = (UniqueConstraint("code", name="uq_institutions_code"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    code: str = Field(max_length=80, index=True)
+    name: str = Field(max_length=255)
+    role: InstitutionRole = Field(index=True)
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+    def __init__(self, **data: Any) -> None:
+        if isinstance(data.get("code"), str):
+            data["code"] = self.normalize_code(data["code"])
+        if isinstance(data.get("name"), str):
+            data["name"] = self.normalize_name(data["name"])
+        super().__init__(**data)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("Institution code must not be empty.")
+        return normalized
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Institution name must not be empty.")
+        return normalized
+
+    @validates("code")
+    def validate_code_assignment(self, key: str, value: str) -> str:
+        return self.normalize_code(value)
+
+    @validates("name")
+    def validate_name_assignment(self, key: str, value: str) -> str:
+        return self.normalize_name(value)
+
+
+class ReportInstitutionLink(SQLModel, table=True):
+    """Append-only relationship history between reports and institutions."""
+
+    __tablename__: ClassVar[str] = "report_institution_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "report_id",
+            "institution_id",
+            "relationship_type",
+            name="uq_report_institution_relationship",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_id: UUID = Field(
+        foreign_key="citizen_issue_reports.id",
+        index=True,
+    )
+    institution_id: UUID = Field(foreign_key="institutions.id", index=True)
+    relationship_type: ReportInstitutionRelationship = Field(index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+class InstitutionResponse(SQLModel, table=True):
+    """Append-only public response from an institution linked to a report."""
+
+    __tablename__: ClassVar[str] = "institution_responses"
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(btrim(content)) > 0 AND char_length(content) <= 4000",
+            name="ck_institution_responses_content",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    report_institution_link_id: UUID = Field(
+        foreign_key="report_institution_links.id",
+    )
+    content: str = Field(max_length=4000)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+    def __init__(self, **data: Any) -> None:
+        if isinstance(data.get("content"), str):
+            data["content"] = self.normalize_content(data["content"])
+        super().__init__(**data)
+
+    @field_validator("content")
+    @classmethod
+    def normalize_content(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or len(normalized) > 4000:
+            raise ValueError("Institution response content is invalid.")
+        return normalized
+
+    @validates("content")
+    def validate_content_assignment(self, key: str, value: str) -> str:
+        return self.normalize_content(value)
