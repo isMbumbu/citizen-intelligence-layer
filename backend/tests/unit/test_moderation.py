@@ -368,3 +368,16 @@ async def test_moderator_auth_boundary_fails_closed() -> None:
     with pytest.raises(HTTPException) as error:
         require_moderation_permission(CurrentModerator(uuid4(), frozenset()))
     assert error.value.status_code == 403
+
+
+async def test_moderation_requires_permission_and_still_works_when_present() -> None:
+    with pytest.raises(HTTPException) as error:
+        require_moderation_permission(CurrentModerator(uuid4(), frozenset()))
+    assert error.value.status_code == 403
+
+    actor = CurrentModerator(
+        uuid4(),
+        frozenset({MODERATE_CONTENT_PERMISSION}),
+    )
+    result = require_moderation_permission(actor)
+    assert result == actor

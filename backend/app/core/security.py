@@ -1,4 +1,4 @@
-"""Security-oriented ASGI middleware and moderation auth boundary."""
+"""Security-oriented ASGI middleware and minimal trusted-actor authorization."""
 
 from dataclasses import dataclass
 from typing import Annotated
@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 MODERATE_CONTENT_PERMISSION = "moderate_content"
+EVIDENCE_READ_PROTECTED_PERMISSION = "evidence_read_protected"
 
 
 @dataclass(frozen=True)
@@ -18,12 +19,25 @@ class CurrentModerator:
     permissions: frozenset[str]
 
 
+CurrentActor = CurrentModerator
+
+
 async def get_current_moderator() -> CurrentModerator:
     """Fail closed until a production authentication provider is integrated."""
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Authentication is required.",
     )
+
+
+async def get_optional_current_actor() -> CurrentModerator | None:
+    """Return an optional trusted actor without creating a broader auth system."""
+    try:
+        return await get_current_moderator()
+    except HTTPException as error:
+        if error.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
 
 
 async def get_authorized_moderator(
@@ -33,14 +47,46 @@ async def get_authorized_moderator(
     return require_moderation_permission(actor)
 
 
-def require_moderation_permission(actor: CurrentModerator) -> CurrentModerator:
-    """Require the explicit permission for content moderation operations."""
-    if MODERATE_CONTENT_PERMISSION not in actor.permissions:
+async def get_authorized_evidence_reader(
+    actor: Annotated[CurrentModerator, Depends(get_current_moderator)],
+) -> CurrentModerator:
+    """Resolve a trusted actor and enforce minimum protected-evidence permission."""
+    return require_evidence_read_protected_permission(actor)
+
+
+def require_permission(
+    actor: CurrentModerator,
+    permission: str,
+    *,
+    detail: str,
+) -> CurrentModerator:
+    """Require a specific explicit permission for a protected operation."""
+    if permission not in actor.permissions:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Moderation permission is required.",
+            detail=detail,
         )
     return actor
+
+
+def require_moderation_permission(actor: CurrentModerator) -> CurrentModerator:
+    """Require the explicit permission for content moderation operations."""
+    return require_permission(
+        actor,
+        MODERATE_CONTENT_PERMISSION,
+        detail="Moderation permission is required.",
+    )
+
+
+def require_evidence_read_protected_permission(
+    actor: CurrentModerator,
+) -> CurrentModerator:
+    """Require the explicit permission for protected evidence retrieval."""
+    return require_permission(
+        actor,
+        EVIDENCE_READ_PROTECTED_PERMISSION,
+        detail="Protected evidence permission is required.",
+    )
 
 
 class SecurityHeadersMiddleware:

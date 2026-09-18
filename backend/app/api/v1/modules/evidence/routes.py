@@ -22,9 +22,13 @@ from app.api.v1.modules.evidence.schemas import (
 )
 from app.core.database import get_session
 from app.core.rate_limit import RateLimitOperation, enforce_rate_limit
+from app.core.security import CurrentModerator, get_optional_current_actor
 
 router = APIRouter(tags=["evidence"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+OptionalActorDep = Annotated[
+    CurrentModerator | None, Depends(get_optional_current_actor)
+]
 
 
 @router.post(
@@ -128,18 +132,24 @@ async def create_report_evidence(
 async def get_evidence(
     evidence_id: UUID,
     session: SessionDep,
+    actor: OptionalActorDep = None,
 ) -> EvidenceResponse:
     """Return evidence metadata without retrieving uploaded file content."""
-    return await service.get_evidence(session, evidence_id)
+    return await service.get_evidence(session, evidence_id, actor=actor)
 
 
 @router.get("/evidence/{evidence_id}/download")
 async def download_evidence(
     evidence_id: UUID,
     session: SessionDep,
+    actor: OptionalActorDep = None,
 ) -> Response:
     """Download the original file for explicitly public evidence."""
-    download = await service.download_evidence(session, evidence_id)
+    download = await service.download_evidence(
+        session,
+        evidence_id,
+        actor=actor,
+    )
     return Response(
         content=download.content,
         media_type=download.mime_type,

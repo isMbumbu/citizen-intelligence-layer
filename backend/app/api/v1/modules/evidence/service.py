@@ -25,6 +25,10 @@ from app.api.v1.modules.evidence.schemas import (
 from app.api.v1.modules.projects import repository as projects_repository
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.security import (
+    CurrentModerator,
+    require_evidence_read_protected_permission,
+)
 from app.core.storage import EvidenceStorage, get_evidence_storage
 from app.models.enums import (
     EvidenceModerationState,
@@ -214,6 +218,8 @@ async def upload_report_evidence_by_id(
 async def get_evidence(
     session: AsyncSession,
     evidence_id: UUID,
+    *,
+    actor: CurrentModerator | None = None,
 ) -> EvidenceResponse:
     """Return evidence metadata without retrieving file content."""
     evidence = await repository.get(session, evidence_id)
@@ -231,6 +237,13 @@ async def get_evidence(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Evidence not found.",
         )
+    if not _is_publicly_retrievable(evidence):
+        if actor is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication is required.",
+            )
+        require_evidence_read_protected_permission(actor)
     logger.info(
         "Retrieved evidence metadata id=%s project_id=%s state=%s",
         evidence.id,
@@ -245,6 +258,7 @@ async def download_evidence(
     evidence_id: UUID,
     *,
     storage: EvidenceStorage | None = None,
+    actor: CurrentModerator | None = None,
 ) -> EvidenceDownload:
     """Return an explicitly public original evidence file for download."""
     evidence = await repository.get(session, evidence_id)
@@ -255,11 +269,12 @@ async def download_evidence(
             detail="Evidence not found.",
         )
     if not _is_publicly_retrievable(evidence):
-        logger.info("Evidence download was denied id=%s", evidence_id)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Evidence is not publicly retrievable.",
-        )
+        if actor is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication is required.",
+            )
+        require_evidence_read_protected_permission(actor)
 
     try:
         content = await (storage or get_evidence_storage()).read(

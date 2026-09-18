@@ -242,17 +242,17 @@ async def test_evidence_response_preserves_trust_and_lifecycle_metadata() -> Non
     assert response.file_size_bytes == 4096
 
 
-async def test_evidence_metadata_can_be_retrieved_without_file_content(
+async def test_non_public_evidence_metadata_requires_trusted_actor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    evidence = _evidence()
+    evidence = _evidence(visibility=EvidenceVisibility.PRIVATE.value)
     monkeypatch.setattr(evidence_repository, "get", AsyncMock(return_value=evidence))
 
-    response = await evidence_service.get_evidence(AsyncMock(), EVIDENCE_ID)
+    with pytest.raises(HTTPException) as error:
+        await evidence_service.get_evidence(AsyncMock(), EVIDENCE_ID)
 
-    assert response.id == EVIDENCE_ID
-    assert not hasattr(response, "storage_key")
-    assert not hasattr(response, "file_content")
+    assert error.value.status_code == 401
+    assert error.value.detail == "Authentication is required."
 
 
 def test_evidence_is_separate_from_official_source_models() -> None:
