@@ -14,8 +14,10 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportResponse,
     CitizenReportStatusHistoryResponse,
     InstitutionResponseResponse,
+    ReportComparisonResponse,
     ReportingChannelResponse,
     ReportInstitutionResponse,
+    ReportIssueComparisonResponse,
 )
 from app.api.v1.modules.geography import repository as geography_repository
 from app.api.v1.modules.projects import repository as projects_repository
@@ -371,6 +373,42 @@ async def get_report_responses(
         )
         for response, link, institution in responses
     ]
+
+
+async def get_report_comparison(
+    session: AsyncSession,
+    report_id: UUID,
+) -> ReportComparisonResponse:
+    """Return the original issue separately from its institution responses."""
+    report = await repository.get(session, report_id)
+    if report is None:
+        logger.info("Report comparison target was not found id=%s", report_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+    responses = await repository.list_institution_responses(session, report_id)
+    responses.sort(key=lambda item: (item[0].created_at, str(item[0].id)))
+    return ReportComparisonResponse(
+        issue=ReportIssueComparisonResponse(
+            report_id=report.id,
+            category=ReportCategory(report.category),
+            description=report.description,
+            submitted_at=report.submitted_at,
+        ),
+        responses=[
+            InstitutionResponseResponse(
+                response_id=response.id,
+                institution_id=institution.id,
+                institution_name=institution.name,
+                institution_role=institution.role,
+                relationship_type=link.relationship_type,
+                content=response.content,
+                created_at=response.created_at,
+            )
+            for response, link, institution in responses
+        ],
+    )
 
 
 def _most_specific_channels(

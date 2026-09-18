@@ -92,3 +92,19 @@ class InstitutionResponseResponse(BaseModel):
     relationship_type: ReportInstitutionRelationship
     content: str
     created_at: datetime
+
+
+class ReportIssueComparisonResponse(BaseModel):
+    """Public-safe original citizen issue for RESP-003 comparison."""
+
+    report_id: UUID
+    category: ReportCategory
+    description: str
+    submitted_at: datetime
+
+
+class ReportComparisonResponse(BaseModel):
+    """Separate public issue and institution-response comparison envelope."""
+
+    issue: ReportIssueComparisonResponse
+    responses: list[InstitutionResponseResponse]
