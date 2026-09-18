@@ -79,6 +79,9 @@ class CommentStatus(StrEnum):
 
 class CommentModerationState(StrEnum):
     PENDING = "PENDING"
+    FLAGGED = "FLAGGED"
+    HIDDEN = "HIDDEN"
+    REMOVED = "REMOVED"
 
 
 class CommentVisibility(StrEnum):
@@ -106,6 +109,27 @@ class EvidenceModerationState(StrEnum):
     FLAGGED = "FLAGGED"
     HIDDEN = "HIDDEN"
     REMOVED = "REMOVED"
+
+
+class ModerationTargetType(StrEnum):
+    COMMENT = "COMMENT"
+    EVIDENCE = "EVIDENCE"
+
+
+class ModerationAction(StrEnum):
+    FLAG = "FLAG"
+    HIDE = "HIDE"
+    REMOVE = "REMOVE"
+    RESTORE = "RESTORE"
+
+
+class ModerationReason(StrEnum):
+    SPAM = "SPAM"
+    HARASSMENT = "HARASSMENT"
+    PERSONAL_INFORMATION = "PERSONAL_INFORMATION"
+    MALICIOUS_CONTENT = "MALICIOUS_CONTENT"
+    INAPPROPRIATE_CONTENT = "INAPPROPRIATE_CONTENT"
+    ABUSE = "ABUSE"
 
 
 class EvidenceProcessingState(StrEnum):

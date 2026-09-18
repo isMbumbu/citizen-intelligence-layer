@@ -33,6 +33,7 @@ async def list_comments(
         .where(
             CitizenComment.project_id == project_id,
             col(CitizenComment.visibility) == "PUBLIC",
+            col(CitizenComment.moderation_state).not_in({"HIDDEN", "REMOVED"}),
         )
         .order_by(col(CitizenComment.created_at))
     )

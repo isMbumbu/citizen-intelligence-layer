@@ -6,6 +6,7 @@ from app.models.evidence import (
     EvidenceProcessingEvent,
     EvidenceRecord,
 )
+from app.models.moderation import ModerationHistory
 from app.models.service_state import ServiceState
 from app.models.vertical_slice import (
     CitizenIssueReport,
@@ -40,6 +41,7 @@ __all__ = [
     "EvidenceRecord",
     "EvidenceProcessingEvent",
     "EvidenceDerivedArtifact",
+    "ModerationHistory",
     "Claim",
     "ClaimReviewRequest",
     "ClaimSource",

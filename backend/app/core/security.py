@@ -1,6 +1,46 @@
-"""Security-oriented ASGI middleware."""
+"""Security-oriented ASGI middleware and moderation auth boundary."""
 
+from dataclasses import dataclass
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import Depends, HTTPException, status
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+MODERATE_CONTENT_PERMISSION = "moderate_content"
+
+
+@dataclass(frozen=True)
+class CurrentModerator:
+    """Trusted actor context supplied by the eventual authentication layer."""
+
+    actor_id: UUID
+    permissions: frozenset[str]
+
+
+async def get_current_moderator() -> CurrentModerator:
+    """Fail closed until a production authentication provider is integrated."""
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication is required.",
+    )
+
+
+async def get_authorized_moderator(
+    actor: Annotated[CurrentModerator, Depends(get_current_moderator)],
+) -> CurrentModerator:
+    """Resolve a trusted actor and enforce moderation permission."""
+    return require_moderation_permission(actor)
+
+
+def require_moderation_permission(actor: CurrentModerator) -> CurrentModerator:
+    """Require the explicit permission for content moderation operations."""
+    if MODERATE_CONTENT_PERMISSION not in actor.permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Moderation permission is required.",
+        )
+    return actor
 
 
 class SecurityHeadersMiddleware:

@@ -223,6 +223,14 @@ async def get_evidence(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Evidence not found.",
         )
+    if evidence.moderation_state in {
+        EvidenceModerationState.HIDDEN.value,
+        EvidenceModerationState.REMOVED.value,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Evidence not found.",
+        )
     logger.info(
         "Retrieved evidence metadata id=%s project_id=%s state=%s",
         evidence.id,
