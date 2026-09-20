@@ -23,6 +23,9 @@ services:
       <<: *backend-build
       target: development
     env_file: .env
+    environment:
+      # The Next.js service reaches FastAPI by its Compose service name.
+      TRUSTED_HOSTS: '["localhost","127.0.0.1","testserver","api"]'
     volumes:
       - ./backend:/app
     ports:
