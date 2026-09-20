@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { fetchHealth } from "@/lib/api";
+import { useApiQuery } from "@/lib/use-api-query";
 import { Brand, Icon } from "./ui";
 
 const nav = [
@@ -21,9 +22,10 @@ function isActive(path: string, href: string) {
 }
 
 export function StatusIndicator({ compact = false }: { compact?: boolean }) {
-  const [status, setStatus] = useState<"online" | "offline">("offline");
-  useEffect(() => { void fetchHealth().then((health) => setStatus(health.status === "ok" ? "online" : "offline")).catch(() => setStatus("offline")); }, []);
-  return <span className={`backend-status backend-status--${status}`} title={status === "online" ? "Backend Online" : "Backend unavailable"}><i />{!compact && <span><strong>{status === "online" ? "Backend Online" : "Backend unavailable"}</strong><small>API v1</small></span>}</span>;
+  const { data, loading, refresh } = useApiQuery(fetchHealth, { retries: 0 });
+  const status = loading ? "checking" : data?.status === "ok" ? "online" : "offline";
+  const label = status === "online" ? "Backend Online" : status === "checking" ? "Checking backend" : "Backend unavailable";
+  return <span className={`backend-status backend-status--${status}`} title={label} aria-live="polite"><i />{!compact && <span><strong>{label}</strong><small>{status === "online" ? "Live public data" : "API v1"}</small></span>}{status === "offline" && <button type="button" className="status-retry" onClick={() => void refresh()} aria-label="Retry backend connection">Retry</button>}</span>;
 }
 
 export function Header() {
