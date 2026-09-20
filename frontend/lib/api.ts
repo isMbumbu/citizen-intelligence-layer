@@ -8,6 +8,7 @@
 
 const serverBaseUrl = process.env.API_BASE_URL ?? "http://localhost:8000";
 const clientBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
+const requestTimeoutMs = 12_000;
 
 export function getApiBaseUrl(): string {
   return typeof window === "undefined" ? serverBaseUrl : clientBaseUrl;
@@ -31,9 +32,12 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const url = `${getApiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   let response: Response;
+  const controller = new AbortController();
+  const timeout = windowOrServerTimeout(controller);
   try {
     response = await fetch(url, {
       ...init,
+      signal: controller.signal,
       headers: {
         Accept: "application/json",
         ...(!init?.body || !(init.body instanceof FormData)
@@ -43,7 +47,12 @@ export async function apiFetch<T>(
       },
     });
   } catch (cause) {
-    throw new ApiError("Backend is unreachable. Is the API running?", 0, cause);
+    const message = cause instanceof DOMException && cause.name === "AbortError"
+      ? "The public service took too long to respond. Please try again."
+      : "Backend is unreachable. Is the API running?";
+    throw new ApiError(message, 0, cause);
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!response.ok) {
@@ -63,6 +72,10 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T;
+}
+
+function windowOrServerTimeout(controller: AbortController) {
+  return setTimeout(() => controller.abort(), requestTimeoutMs);
 }
 
 export async function apiFetchBlob(

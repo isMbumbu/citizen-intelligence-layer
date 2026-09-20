@@ -4,26 +4,24 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { type CitizenComment, type ClaimEvidence, type Evidence, type ProjectAnomaly, type ProjectDetail, type ProjectVerification, ApiError, createComment, createReport, fetchAnomalies, fetchComments, fetchProject, fetchProjectSources, fetchVerification, reportComment, uploadEvidence } from "@/lib/api";
+import { useApiQuery } from "@/lib/use-api-query";
 import { EmptyState, ErrorState, Icon, LoadingSkeleton, ProgressBar, StatusBadge, VerificationBadge, formatDate, formatMoney, humanError } from "./ui";
 
 type DetailData = { project: ProjectDetail; sources: ClaimEvidence[]; verification: ProjectVerification | null; anomalies: ProjectAnomaly[]; comments: CitizenComment[] };
 
 export function ProjectDetailPage({ id }: { id: string }) {
-  const [data, setData] = useState<DetailData>();
-  const [error, setError] = useState<unknown>();
-  const [loading, setLoading] = useState(true);
-  const load = useCallback(async () => { setLoading(true); setError(undefined); try {
+  const load = useCallback(async (): Promise<DetailData> => {
     const [project, sources, verification, anomalies, comments] = await Promise.all([fetchProject(id), fetchProjectSources(id), fetchVerification(id), fetchAnomalies(id), fetchComments(id)]);
-    setData({ project, sources, verification, anomalies, comments });
-  } catch (caught) { setError(caught); } finally { setLoading(false); } }, [id]);
-  useEffect(() => { void load(); }, [load]);
+    return { project, sources, verification, anomalies, comments };
+  }, [id]);
+  const { data, error, loading, refresh } = useApiQuery(load);
   if (loading) return <div className="content-wrap detail-loading"><LoadingSkeleton lines={11}/></div>;
-  if (error) return <div className="content-wrap page-space"><ErrorState error={error} retry={() => void load()}/></div>;
+  if (error) return <div className="content-wrap page-space"><ErrorState error={error} retry={() => void refresh()}/></div>;
   if (!data) return null;
   const { project } = data;
   return <div className="project-detail"><section className="detail-hero"><div className="content-wrap"><Link className="back-link" href="/projects">← Back to projects</Link><div className="detail-hero__top"><div><p className="eyebrow">PUBLIC PROJECT</p><h1>{project.name}</h1><p>{project.description}</p></div><StatusBadge value={project.status}/></div><div className="detail-meta"><span><Icon name="pin"/> {project.location.county}, {project.location.ward}</span><span><Icon name="folder"/> {project.category.name}{project.subtype ? ` · ${project.subtype.name}` : ""}</span>{project.project_type && <span><Icon name="projects"/> {project.project_type}</span>}</div></div></section>
     <div className="content-wrap detail-grid"><div className="detail-main"><section className="detail-section"><div className="section-heading"><h2>Project overview</h2><VerificationBadge value={data.verification?.status}/></div><div className="overview-grid"><Info label="County" value={project.location.county}/><Info label="Sub-county" value={project.location.sub_county}/><Info label="Ward" value={project.location.ward}/><Info label="Last verified" value={formatDate(project.last_verified_at)}/></div>{project.progress ? <div className="progress-card"><div><small>Reported project progress</small><p>Reported on {formatDate(project.progress.reported_at)}. This is project metadata, not an independent verification finding.</p></div><ProgressBar value={project.progress.percentage}/></div> : <EmptyState title="No reported progress" body="The project record does not currently include a progress update."/>}</section>
-      <FinancialSummary project={project}/><Timeline project={project}/><VerificationPanel verification={data.verification}/><ReviewSignals anomalies={data.anomalies}/><Sources sources={data.sources}/><ProjectEvidence claims={project.evidence}/><Comments projectId={id} initialComments={data.comments} onChange={load}/></div>
+      <FinancialSummary project={project}/><Timeline project={project}/><VerificationPanel verification={data.verification}/><ReviewSignals anomalies={data.anomalies}/><Sources sources={data.sources}/><ProjectEvidence claims={project.evidence}/><Comments projectId={id} initialComments={data.comments} onChange={refresh}/></div>
       <aside className="detail-aside"><ReportForm projectId={id}/><EvidenceUpload projectId={id}/>{project.contractor ? <section className="aside-card"><h2>Contractor</h2><strong>{project.contractor.legal_name}</strong><p>{project.contractor.award_reference}</p><span className="metadata-tag">{project.contractor.contract_status}</span>{project.contractor.contract_end_date && <p>Contract end: {formatDate(project.contractor.contract_end_date)}</p>}</section> : <section className="aside-card"><h2>Contractor</h2><p>No contractor record is available for this project.</p></section>}</aside></div>
   </div>;
 }

@@ -2,14 +2,28 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type ProjectDetail, type ProjectFilters, type ProjectListItem, type ProjectPage, type ProjectStatus, type TaxonomyCategory, fetchCategories, fetchProject, fetchProjects } from "@/lib/api";
+import { type ProjectDetail, type ProjectFilters, type ProjectListItem, type ProjectStatus, type TaxonomyCategory, fetchCategories, fetchProjects } from "@/lib/api";
+import { useApiQuery, useDebouncedValue } from "@/lib/use-api-query";
 import { EmptyState, ErrorState, Icon, LoadingSkeleton, ProgressBar, StatusBadge, formatMoney } from "./ui";
 
 type FilterState = Omit<ProjectFilters, "page" | "page_size">;
 const blankFilters: FilterState = { search: "", county: "", ward: "", project_type: "", category_id: "", subtype_id: "", status: undefined };
 const statuses: ProjectStatus[] = ["PLANNED", "IN_PROGRESS", "COMPLETED", "ON_HOLD"];
+
+function filtersFromParams(params: URLSearchParams): FilterState {
+  const status = params.get("status");
+  return {
+    search: params.get("search") ?? "",
+    county: params.get("county") ?? "",
+    ward: params.get("ward") ?? "",
+    project_type: params.get("project_type") ?? "",
+    category_id: params.get("category_id") ?? "",
+    subtype_id: params.get("subtype_id") ?? "",
+    status: statuses.includes(status as ProjectStatus) ? status as ProjectStatus : undefined,
+  };
+}
 
 function projectVisual(project: ProjectListItem) {
   const source = `${project.category.code} ${project.project_type ?? ""}`.toLowerCase();
@@ -54,35 +68,39 @@ function FilterControls({ filters, setFilters, categories, publicProjects, mobil
 
 export function ProjectExplorer({ title = "All Projects", intro, featured = false }: { title?: string; intro?: string; featured?: boolean }) {
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<FilterState>(blankFilters);
-  const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
-  const [page, setPage] = useState(1);
-  const [data, setData] = useState<ProjectPage>();
-  const [categories, setCategories] = useState<TaxonomyCategory[]>([]);
-  const [allProjects, setAllProjects] = useState<ProjectListItem[]>([]);
-  const [error, setError] = useState<unknown>();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
+  const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
+  const [searchInput, setSearchInput] = useState(filters.search ?? "");
   const [showFilters, setShowFilters] = useState(false);
-  const loadOptions = useCallback(async () => {
-    try { const [taxonomy, projects] = await Promise.all([fetchCategories(), fetchProjects({ page_size: 100 })]); setCategories(taxonomy); setAllProjects(projects.items); } catch { /* main data surface handles service errors */ }
-  }, []);
-  const load = useCallback(async () => {
-    setLoading(true); setError(undefined);
-    try { const result = await fetchProjects({ ...filters, search: query.trim() || undefined, page, page_size: featured ? 4 : 12 }); setData(result); } catch (caught) { setError(caught); } finally { setLoading(false); }
-  }, [filters, query, page, featured]);
-  useEffect(() => { void loadOptions(); }, [loadOptions]);
-  useEffect(() => { void load(); }, [load]);
-  useEffect(() => { const value = searchParams.get("search") ?? ""; setQuery(value); }, [searchParams]);
-  useEffect(() => { setPage(1); }, [filters, query]);
-  const clear = () => { setFilters(blankFilters); setQuery(""); setPage(1); };
+  const page = Number.parseInt(searchParams.get("page") ?? "1", 10) || 1;
+  const debouncedSearch = useDebouncedValue(searchInput.trim(), 350);
+  const updateUrl = useCallback((next: FilterState, nextPage = 1) => {
+    const params = new URLSearchParams();
+    Object.entries(next).forEach(([key, value]) => { if (value) params.set(key, String(value)); });
+    if (nextPage > 1) params.set("page", String(nextPage));
+    router.replace(`${pathname}${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+  }, [pathname, router]);
+  useEffect(() => { setSearchInput(filters.search ?? ""); }, [filters.search]);
+  useEffect(() => {
+    if (debouncedSearch !== (filters.search ?? "")) updateUrl({ ...filters, search: debouncedSearch }, 1);
+  }, [debouncedSearch, filters, updateUrl]);
+  const query = useCallback(() => fetchProjects({ ...filters, page, page_size: featured ? 4 : 12 }), [featured, filters, page]);
+  const optionsQuery = useCallback(async () => Promise.all([fetchCategories(), fetchProjects({ page_size: 100 })]), []);
+  const { data, error, loading, refresh } = useApiQuery(query);
+  const { data: options } = useApiQuery(optionsQuery);
+  const categories = options?.[0] ?? [];
+  const allProjects = options?.[1].items ?? [];
+  const setFilters = (next: FilterState) => updateUrl(next, 1);
+  const clear = () => { setSearchInput(""); updateUrl(blankFilters, 1); };
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
   return <section className={`project-explorer ${featured ? "project-explorer--featured" : ""}`}>
     {!featured && <div className="projects-toolbar"><div><p className="eyebrow">PUBLIC PROJECT EXPLORER</p><h1>{title}</h1>{intro && <p>{intro}</p>}</div></div>}
-    <div className="project-search-row"><form onSubmit={(event) => { event.preventDefault(); void load(); }}><Icon name="search" size={20}/><input value={query} maxLength={120} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects, counties, wards, or keywords..." aria-label="Search public projects"/><button className="button button--red" type="submit">Search</button></form><button className="filters-toggle" onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters}><Icon name="filter" size={16}/> Filters</button></div>
+    <div className="project-search-row"><form onSubmit={(event) => { event.preventDefault(); updateUrl({ ...filters, search: searchInput.trim() }, 1); }}><Icon name="search" size={20}/><input value={searchInput} maxLength={120} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search projects, counties, wards, or keywords..." aria-label="Search public projects"/><button className="button button--red" type="submit">Search</button></form><button className="filters-toggle" onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters}><Icon name="filter" size={16}/> Filters</button></div>
     {showFilters && <div className="mobile-filter-panel"><FilterControls mobile filters={filters} setFilters={setFilters} categories={categories} publicProjects={allProjects}/><button className="text-button" onClick={clear}>Clear filters</button></div>}
     <div className="explorer-layout"><aside className="filter-sidebar"><div className="filter-sidebar__title"><Icon name="filter" size={16}/><h2>Filter Projects</h2></div><FilterControls filters={filters} setFilters={setFilters} categories={categories} publicProjects={allProjects}/><button className="text-button" onClick={clear}>Clear filters</button><div className="quick-links"><h3>Quick Links</h3><Link href="/civic-action"><Icon name="report"/>Report an Issue<small>Help us verify a project</small></Link><Link href="/projects"><Icon name="projects"/>View All Projects<small>Browse the full list</small></Link><Link href="/taxonomy"><Icon name="folder"/>Browse Taxonomy<small>Categories and subtypes</small></Link></div><p className="sidebar-trust"><span>🇰🇪</span> Kenya <i/> Transparency <i/> Accountability</p></aside>
       <div className="project-results"><div className="section-heading"><h2>{featured ? "Featured Projects" : "Projects"}</h2>{featured ? <Link href="/projects">View all projects <Icon name="arrow" size={14}/></Link> : data && <span>{data.total} public project{data.total === 1 ? "" : "s"}</span>}</div>
-        {loading ? <div className="project-grid project-grid--loading"><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/></div> : error ? <ErrorState error={error} retry={() => void load()}/> : data && data.items.length > 0 ? <><div className="project-grid">{data.items.map((project) => <ProjectCard key={project.id} project={project}/>)}</div>{!featured && <div className="pagination"><button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button><span>Page {page} of {totalPages}</span><button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button></div>}</> : <EmptyState title="No public projects match these filters" body="Try clearing a filter or broadening your search." action={<button className="text-button" onClick={clear}>Clear filters <Icon name="arrow" size={14}/></button>}/>}</div>
+        {loading ? <div className="project-grid project-grid--loading"><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/></div> : error ? <ErrorState error={error} retry={() => void refresh()}/> : data && data.items.length > 0 ? <><div className="project-grid">{data.items.map((project) => <ProjectCard key={project.id} project={project}/>)}</div>{!featured && <div className="pagination"><button disabled={page <= 1} onClick={() => updateUrl(filters, page - 1)}>Previous</button><span aria-live="polite">Page {page} of {totalPages}</span><button disabled={page >= totalPages} onClick={() => updateUrl(filters, page + 1)}>Next</button></div>}</> : <EmptyState title="No public projects match these filters" body="Try clearing a filter or broadening your search." action={<button className="text-button" onClick={clear}>Clear filters <Icon name="arrow" size={14}/></button>}/>}</div>
     </div>
   </section>;
 }
@@ -98,24 +116,13 @@ function PlatformStats({ projectCount }: { projectCount: number | undefined }) {
 }
 
 export function CivicHome() {
-  const [data, setData] = useState<ProjectPage>();
-  const [featured, setFeatured] = useState<ProjectListItem[]>([]);
-  const [details, setDetails] = useState<Record<string, ProjectDetail>>({});
-  const [error, setError] = useState<unknown>();
-  const [loading, setLoading] = useState(true);
-  const load = useCallback(async () => {
-    setLoading(true); setError(undefined);
-    try {
-      const page = await fetchProjects({ page_size: 4 }); setData(page); setFeatured(page.items);
-      const loaded = await Promise.all(page.items.map(async (project) => [project.id, await fetchProject(project.id)] as const));
-      setDetails(Object.fromEntries(loaded));
-    } catch (caught) { setError(caught); } finally { setLoading(false); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
+  const query = useCallback(() => fetchProjects({ page_size: 4 }), []);
+  const { data, error, loading, refresh } = useApiQuery(query);
+  const featured = data?.items ?? [];
   return <>
     <section className="hero"><div className="hero__image"/><div className="hero__shade"/><div className="hero__content content-wrap"><div className="hero-copy"><p className="hero-country">KENYA <span/><i/><b/></p><h1>Better projects.<br/><strong>Stronger</strong> communities.</h1><p>Explore public projects, track spending, report issues,<br className="desktop-only"/> and help build a more transparent Kenya.</p></div><PlatformStats projectCount={data?.total}/></div><div className="hero-search content-wrap"><Link className="screen-reader-link" href="/projects">Browse public projects</Link><HeroSearch/></div></section>
     <section className="home-content content-wrap"><div className="home-main"><aside className="filter-sidebar home-filter-sidebar"><div className="filter-sidebar__title"><Icon name="filter" size={16}/><h2>Filter Projects</h2></div><p className="compact-copy">Use the live explorer to filter by county, ward, type, category, or status.</p><Link className="button button--outline button--full" href="/projects">Open project filters <Icon name="arrow" size={15}/></Link><div className="quick-links"><h3>Quick Links</h3><Link href="/civic-action"><Icon name="report"/>Report an Issue<small>Help us verify a project</small></Link><Link href="/projects"><Icon name="projects"/>View All Projects<small>Browse the full list</small></Link><Link href="/taxonomy"><Icon name="folder"/>Browse Taxonomy<small>Categories and subtypes</small></Link></div><p className="sidebar-trust"><span>🇰🇪</span> Kenya <i/> Transparency <i/> Accountability</p></aside>
-      <section className="featured-results"><div className="section-heading"><h2>Featured Projects</h2><Link href="/projects">View all projects <Icon name="arrow" size={14}/></Link></div>{loading ? <div className="project-grid"><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/></div> : error ? <ErrorState error={error} retry={() => void load()}/> : featured.length ? <div className="project-grid project-grid--four">{featured.map((project) => <ProjectCard project={project} detail={details[project.id]} key={project.id}/>)}</div> : <EmptyState title="No public projects published yet" body="The projects API has not returned any public project records."/>}</section></div>
+      <section className="featured-results"><div className="section-heading"><h2>Featured Projects</h2><Link href="/projects">View all projects <Icon name="arrow" size={14}/></Link></div>{loading ? <div className="project-grid"><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/><LoadingSkeleton lines={7}/></div> : error ? <ErrorState error={error} retry={() => void refresh()}/> : featured.length ? <div className="project-grid project-grid--four">{featured.map((project) => <ProjectCard project={project} key={project.id}/>)}</div> : <EmptyState title="No public projects published yet" body="The projects API has not returned any public project records."/>}</section></div>
       <div className="home-bottom"><section className="recent-reports"><div className="section-heading"><h2>Recent Civic Reports</h2><Link href="/civic-action">View all reports <Icon name="arrow" size={14}/></Link></div><EmptyState title="A public reports feed is not available" body="The current API supports submitting and tracking an individual report, but does not publish a list of recent reports." action={<Link className="text-button" href="/civic-action">Report an issue <Icon name="arrow" size={14}/></Link>}/></section><CivicActionCTA/><section className="recent-activity"><div className="section-heading"><h2>Recent Activity</h2><span>View all <Icon name="arrow" size={14}/></span></div><EmptyState title="No public activity feed" body="The current API does not expose a timeline of project or community updates."/></section></div>
     </section>
   </>;
