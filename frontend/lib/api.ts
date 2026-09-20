@@ -434,7 +434,26 @@ export interface TaxonomyCategory {
 }
 
 export function fetchHealth(): Promise<HealthStatus> {
-  return apiFetch<HealthStatus>("/health");
+  const url = typeof window === "undefined" ? `${serverBaseUrl}/health` : "/api/health";
+  return fetchJson<HealthStatus>(url);
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const controller = new AbortController();
+  const timeout = windowOrServerTimeout(controller);
+  try {
+    const response = await fetch(url, { headers: { Accept: "application/json" }, signal: controller.signal });
+    if (!response.ok) throw new ApiError(`Request to health failed (${response.status})`, response.status);
+    return (await response.json()) as T;
+  } catch (cause) {
+    if (cause instanceof ApiError) throw cause;
+    const message = cause instanceof DOMException && cause.name === "AbortError"
+      ? "The public service took too long to respond. Please try again."
+      : "Backend is unreachable. Is the API running?";
+    throw new ApiError(message, 0, cause);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function fetchProjects(filters: ProjectFilters = {}): Promise<ProjectPage> {

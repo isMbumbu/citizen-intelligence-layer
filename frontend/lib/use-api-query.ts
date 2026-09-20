@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "./api";
 
 type QueryState<T> = {
@@ -23,22 +23,29 @@ export function useApiQuery<T>(
   const [data, setData] = useState<T>();
   const [error, setError] = useState<unknown>();
   const [loading, setLoading] = useState(true);
+  const latestRequest = useRef(0);
   const retries = options.retries ?? 1;
 
   const refresh = useCallback(async () => {
+    const requestId = latestRequest.current + 1;
+    latestRequest.current = requestId;
     setLoading(true);
     setError(undefined);
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {
         const result = await query();
-        setData(result);
-        setError(undefined);
-        setLoading(false);
+        if (requestId === latestRequest.current) {
+          setData(result);
+          setError(undefined);
+          setLoading(false);
+        }
         return;
       } catch (caught) {
         if (attempt === retries || !shouldRetry(caught)) {
-          setError(caught);
-          setLoading(false);
+          if (requestId === latestRequest.current) {
+            setError(caught);
+            setLoading(false);
+          }
           return;
         }
         await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)));

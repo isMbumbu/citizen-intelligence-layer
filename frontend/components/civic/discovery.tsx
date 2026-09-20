@@ -39,7 +39,7 @@ export function ProjectCard({ project, detail }: { project: ProjectListItem; det
     <div className={`project-visual ${projectVisual(project)}`} role="img" aria-label="Illustrative project placeholder; no project image is available from the API"><StatusBadge value={project.status}/><span className="project-visual__label">Project image unavailable</span></div>
     <div className="project-card__body"><h3><Link href={`/projects/${project.id}`}>{project.name}</Link></h3><p className="project-description">{project.description}</p>
       <p className="project-place"><Icon name="pin" size={13}/>{project.location.county} <span>·</span> {project.location.ward}</p>
-      <div className="project-tags"><span>{project.category.name}</span>{project.project_type && <span>{project.project_type}</span>}</div>
+      <div className="project-tags"><span>{project.category.name}</span>{project.project_type && <span>{project.project_type}</span>}</div><p className="project-card__provenance"><Icon name="evidence" size={11}/> Public project record</p>
       <div className="project-money"><div><small>{finance?.kind ? finance.kind.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Financial data"}</small><strong>{finance ? formatMoney(finance.amount, finance.currency) : "Not available"}</strong></div>{detail?.progress && <ProgressBar value={detail.progress.percentage}/>}</div>
       <Link className="card-link" href={`/projects/${project.id}`}>View details <Icon name="arrow" size={14}/></Link>
     </div>
@@ -64,6 +64,20 @@ function FilterControls({ filters, setFilters, categories, publicProjects, mobil
     <SelectField id={`${mobile ? "mobile-" : ""}subtype`} label="Subtype" value={filters.subtype_id ?? ""} disabled={!selectedCategory} onChange={(value) => update("subtype_id", value)}><option value="">{selectedCategory ? "All Subtypes" : "Choose a category first"}</option>{selectedCategory?.subtypes.map((value) => <option value={value.id} key={value.id}>{value.name}</option>)}</SelectField>
     <SelectField id={`${mobile ? "mobile-" : ""}status`} label="Status" value={filters.status ?? ""} onChange={(value) => update("status", value)}><option value="">All Statuses</option>{statuses.map((value) => <option value={value} key={value}>{value.replaceAll("_", " ")}</option>)}</SelectField>
   </div>;
+}
+
+function ActiveFilters({ filters, categories, onReset }: { filters: FilterState; categories: TaxonomyCategory[]; onReset: () => void }) {
+  const category = categories.find((item) => item.id === filters.category_id);
+  const entries = [
+    filters.search && `Search: ${filters.search}`,
+    filters.county && `County: ${filters.county}`,
+    filters.ward && `Ward: ${filters.ward}`,
+    filters.project_type && `Type: ${filters.project_type}`,
+    category && `Category: ${category.name}`,
+    filters.status && `Status: ${filters.status.replaceAll("_", " ")}`,
+  ].filter((item): item is string => Boolean(item));
+  if (!entries.length) return null;
+  return <div className="active-filters" aria-label="Active project filters"><span>Showing results for</span>{entries.map((item) => <em key={item}>{item}</em>)}<button type="button" onClick={onReset}>Reset all filters</button></div>;
 }
 
 export function ProjectExplorer({ title = "All Projects", intro, featured = false }: { title?: string; intro?: string; featured?: boolean }) {
@@ -97,6 +111,7 @@ export function ProjectExplorer({ title = "All Projects", intro, featured = fals
   return <section className={`project-explorer ${featured ? "project-explorer--featured" : ""}`}>
     {!featured && <div className="projects-toolbar"><div><p className="eyebrow">PUBLIC PROJECT EXPLORER</p><h1>{title}</h1>{intro && <p>{intro}</p>}</div></div>}
     <div className="project-search-row"><form onSubmit={(event) => { event.preventDefault(); updateUrl({ ...filters, search: searchInput.trim() }, 1); }}><Icon name="search" size={20}/><input value={searchInput} maxLength={120} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search projects, counties, wards, or keywords..." aria-label="Search public projects"/><button className="button button--red" type="submit">Search</button></form><button className="filters-toggle" onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters}><Icon name="filter" size={16}/> Filters</button></div>
+    <ActiveFilters filters={filters} categories={categories} onReset={clear}/>
     {showFilters && <div className="mobile-filter-panel"><FilterControls mobile filters={filters} setFilters={setFilters} categories={categories} publicProjects={allProjects}/><button className="text-button" onClick={clear}>Clear filters</button></div>}
     <div className="explorer-layout"><aside className="filter-sidebar"><div className="filter-sidebar__title"><Icon name="filter" size={16}/><h2>Filter Projects</h2></div><FilterControls filters={filters} setFilters={setFilters} categories={categories} publicProjects={allProjects}/><button className="text-button" onClick={clear}>Clear filters</button><div className="quick-links"><h3>Quick Links</h3><Link href="/civic-action"><Icon name="report"/>Report an Issue<small>Help us verify a project</small></Link><Link href="/projects"><Icon name="projects"/>View All Projects<small>Browse the full list</small></Link><Link href="/taxonomy"><Icon name="folder"/>Browse Taxonomy<small>Categories and subtypes</small></Link></div><p className="sidebar-trust"><span>🇰🇪</span> Kenya <i/> Transparency <i/> Accountability</p></aside>
       <div className="project-results"><div className="section-heading"><h2>{featured ? "Featured Projects" : "Projects"}</h2>{featured ? <Link href="/projects">View all projects <Icon name="arrow" size={14}/></Link> : data && <span>{data.total} public project{data.total === 1 ? "" : "s"}</span>}</div>
