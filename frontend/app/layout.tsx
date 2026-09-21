@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: "Citizen Intelligence Layer",
   description:
     "Citizen-first intelligence for public spending, projects, evidence, and civic action.",
+  icons: { icon: "/favicon.svg", apple: "/favicon.svg" },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
