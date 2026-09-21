@@ -1,58 +1,80 @@
+<img width="1435" height="762" alt="Screenshot 2026-09-21 at 23 45 38" src="https://github.com/user-attachments/assets/f6d1194b-15c5-4abb-86d6-4abc719b5b9a" />
+
 # Citizen Intelligence Layer
 
-Citizen-first intelligence for public spending, projects, evidence, and civic action.
+A citizen-first platform for understanding public projects, budgets, expenditure,
+contracts, evidence, and civic action.
 
-The Citizen Intelligence Layer turns fragmented public budgets, projects,
-contracts, expenditure, timelines, and government records into information that
-people can understand, verify, and act on.
+## Frontend
 
-## Repository layout
+The frontend is a Next.js application that presents public project information
+and evidence in a citizen-friendly interface.
 
-```text
-.
-├── backend/       FastAPI, SQLModel, Celery, and database migrations
-├── frontend/      Next.js 16 (React 19, TypeScript, Tailwind CSS) web app
-├── principles/    Product and engineering guardrails
-├── specs/         Domain and API specifications
-└── stories/       Implementation stories and acceptance criteria
+Run the frontend locally:
+
+```bash
+cd frontend
+npm run dev
 ```
 
-The backend follows an async, module-oriented structure:
+Open <http://localhost:3000>.
+<img width="1439" height="698" alt="Screenshot 2026-09-21 at 23 46 57" src="https://github.com/user-attachments/assets/baa98145-6bcc-465a-b716-7fb29395d7dc" />
 
-```text
-API routes → service → repository → database
+<img width="1423" height="749" alt="Screenshot 2026-09-21 at 23 47 20" src="https://github.com/user-attachments/assets/8be9364b-3f51-4699-8068-7f44b8e3bbd4" />
+
+<img width="427" height="556" alt="Screenshot 2026-09-21 at 23 47 40" src="https://github.com/user-attachments/assets/7fd761f1-0211-4d84-9104-a661417065e5" />
+
+
+See the complete frontend guide in [frontend/README.md](../frontend/README.md).
+
+## Backend
+
+<img width="1431" height="768" alt="Screenshot 2026-09-21 at 23 48 11" src="https://github.com/user-attachments/assets/556cff39-310b-403d-8fea-786730302020" />
+
+
+The backend is an asynchronous FastAPI service with SQLModel persistence,
+PostgreSQL, Redis, Celery, RabbitMQ, and Alembic migrations.
+
+The API exposes project records with:
+
+- Location and project details
+- Allocated, contracted, and spent amounts
+- Contractor and progress information
+- Verification status
+- Source and claim provenance
+- Evidence-grounded review flags
+- Citizen issue reports
+
+Run the complete stack:
+
+```bash
+docker compose up --build
 ```
 
-Routes are deliberately thin. All material facts must retain provenance; AI
-output is explanatory rather than authoritative.
+Useful endpoints:
 
-## Local development
+- Frontend: <http://localhost:3000>
+- API documentation: <http://localhost:8000/docs>
+- API health: <http://localhost:8000/health>
+- Project list: <http://localhost:8000/api/v1/projects>
 
-1. Copy the root environment template: `cp .env.example .env`.
-2. Start the stack: `docker compose up --build`.
-3. Open the frontend at <http://localhost:3000>.
-4. Open FastAPI documentation at <http://localhost:8000/docs>.
-5. Check the service at <http://localhost:8000/health>.
+See the complete backend guide in [backend/README.md](../backend/README.md).
 
-Docker Compose runs the Next.js frontend, PostgreSQL with PostGIS and pgvector,
-Redis, RabbitMQ, the API, migrations, and a Celery worker. The database
-extensions are created by the first Alembic migration; `/health/ready` checks
-PostgreSQL and Redis. The backend API uses a development image with source
-reloads, while migrations and the worker use the minimal runtime image. The
-frontend uses a minimal Next.js standalone runtime and proxies browser API
-requests to the internal API service. See [backend/README.md](backend/README.md)
-and [frontend/README.md](frontend/README.md) for image details.
+## Adding screenshots
 
-For backend-only development, follow [backend/README.md](backend/README.md).
-For frontend-only development, follow [frontend/README.md](frontend/README.md).
+Store frontend screenshots and backend/API screenshots in this directory or in
+`frontend/public/`, then reference them with repository-relative Markdown:
 
-## Development workflow
+```markdown
+![Project explorer](../frontend/public/project-explorer.png)
+![API documentation](./api-docs.png)
+```
 
-Before implementing a capability, read its governing principle, specification,
-and story. Define acceptance criteria, implement the smallest scoped change,
-then run formatting, linting, type checking, and tests. See [AGENTS.md](AGENTS.md)
-for the working agreement.
+Keep image files small and use descriptive names. Screenshots should not include
+real credentials, personal information, or private API data.
 
-The frontend is a Next.js application that talks to the API through a same-origin
-rewrite; see [frontend/README.md](frontend/README.md) for the request flow and
-environment configuration.
+## Evidence principle
+
+Every material claim should remain traceable to its source record. Derived
+review flags are signals for verification, not accusations, and AI explanations
+must never replace the underlying evidence.
