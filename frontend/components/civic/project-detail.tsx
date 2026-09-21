@@ -3,15 +3,55 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { type CitizenComment, type ClaimEvidence, type Evidence, type ProjectAnomaly, type ProjectDetail, type ProjectVerification, ApiError, createComment, createReport, fetchAnomalies, fetchComments, fetchProject, fetchProjectSources, fetchVerification, reportComment, uploadEvidence } from "@/lib/api";
+import {
+  type CitizenComment,
+  type ClaimEvidence,
+  type Evidence,
+  type ProjectAnomaly,
+  type ProjectDetail,
+  type ProjectVerification,
+  ApiError,
+  createComment,
+  createReport,
+  fetchAnomalies,
+  fetchComments,
+  fetchProject,
+  fetchProjectSources,
+  fetchVerification,
+  reportComment,
+  uploadEvidence,
+} from "@/lib/api";
 import { useApiQuery } from "@/lib/use-api-query";
-import { EmptyState, ErrorState, Icon, LoadingSkeleton, ProgressBar, StatusBadge, VerificationBadge, formatDate, formatMoney, humanError } from "./ui";
+import {
+  EmptyState,
+  ErrorState,
+  Icon,
+  LoadingSkeleton,
+  ProgressBar,
+  StatusBadge,
+  VerificationBadge,
+  formatDate,
+  formatMoney,
+  humanError,
+} from "./ui";
 
-type DetailData = { project: ProjectDetail; sources: ClaimEvidence[]; verification: ProjectVerification | null; anomalies: ProjectAnomaly[]; comments: CitizenComment[] };
+type DetailData = {
+  project: ProjectDetail;
+  sources: ClaimEvidence[];
+  verification: ProjectVerification | null;
+  anomalies: ProjectAnomaly[];
+  comments: CitizenComment[];
+};
 
 export function ProjectDetailPage({ id }: { id: string }) {
   const load = useCallback(async (): Promise<DetailData> => {
-    const [project, sources, verification, anomalies, comments] = await Promise.all([fetchProject(id), fetchProjectSources(id), fetchVerification(id), fetchAnomalies(id), fetchComments(id)]);
+    const [project, sources, verification, anomalies, comments] = await Promise.all([
+      fetchProject(id),
+      fetchProjectSources(id),
+      fetchVerification(id),
+      fetchAnomalies(id),
+      fetchComments(id),
+    ]);
     return { project, sources, verification, anomalies, comments };
   }, [id]);
   const { data, error, loading, refresh } = useApiQuery(load);
@@ -19,62 +59,506 @@ export function ProjectDetailPage({ id }: { id: string }) {
   if (error) return <div className="content-wrap page-space"><ErrorState error={error} retry={() => void refresh()}/></div>;
   if (!data) return null;
   const { project } = data;
-  return <div className="project-detail"><section className="detail-hero"><div className="content-wrap"><Link className="back-link" href="/projects">← Back to projects</Link><div className="detail-hero__top"><div><p className="eyebrow">PUBLIC PROJECT</p><h1>{project.name}</h1><p>{project.description}</p></div><StatusBadge value={project.status}/></div><div className="detail-meta"><span><Icon name="pin"/> {project.location.county}, {project.location.ward}</span><span><Icon name="folder"/> {project.category.name}{project.subtype ? ` · ${project.subtype.name}` : ""}</span>{project.project_type && <span><Icon name="projects"/> {project.project_type}</span>}</div></div></section>
-    <div className="content-wrap detail-grid"><div className="detail-main"><section className="detail-section"><div className="section-heading"><h2>Project overview</h2><VerificationBadge value={data.verification?.status}/></div><div className="overview-grid"><Info label="County" value={project.location.county}/><Info label="Sub-county" value={project.location.sub_county}/><Info label="Ward" value={project.location.ward}/><Info label="Last verified" value={formatDate(project.last_verified_at)}/></div>{project.progress ? <div className="progress-card"><div><small>Reported project progress</small><p>Reported on {formatDate(project.progress.reported_at)}. This is project metadata, not an independent verification finding.</p></div><ProgressBar value={project.progress.percentage}/></div> : <EmptyState title="No reported progress" body="The project record does not currently include a progress update."/>}</section>
-      <FinancialSummary project={project}/><Timeline project={project}/><VerificationPanel verification={data.verification}/><ReviewSignals anomalies={data.anomalies}/><Sources sources={data.sources}/><ProjectEvidence claims={project.evidence}/><Comments projectId={id} initialComments={data.comments} onChange={refresh}/></div>
-      <aside className="detail-aside"><ReportForm projectId={id}/><EvidenceUpload projectId={id}/>{project.contractor ? <section className="aside-card"><h2>Contractor</h2><strong>{project.contractor.legal_name}</strong><p>{project.contractor.award_reference}</p><span className="metadata-tag">{project.contractor.contract_status}</span>{project.contractor.contract_end_date && <p>Contract end: {formatDate(project.contractor.contract_end_date)}</p>}</section> : <section className="aside-card"><h2>Contractor</h2><p>No contractor record is available for this project.</p></section>}</aside></div>
-  </div>;
+  return (
+    <div className="project-detail">
+      <section className="detail-hero">
+        <div className="detail-hero__decor" />
+        <div className="content-wrap">
+          <Link className="back-link" href="/projects">
+            <Icon name="arrow" size={14} /> Back to projects
+          </Link>
+          <div className="detail-hero__top">
+            <div>
+              <p className="eyebrow">PUBLIC PROJECT</p>
+              <h1>{project.name}</h1>
+              <p>{project.description}</p>
+            </div>
+            <StatusBadge value={project.status} />
+          </div>
+          <div className="detail-meta">
+            <span><Icon name="pin" /> {project.location.county}, {project.location.ward}</span>
+            <span><Icon name="folder" /> {project.category.name}{project.subtype ? ` · ${project.subtype.name}` : ""}</span>
+            {project.project_type && <span><Icon name="projects" /> {project.project_type}</span>}
+          </div>
+        </div>
+      </section>
+
+      <div className="content-wrap detail-grid">
+        <div className="detail-main">
+          <section className="detail-section">
+            <div className="section-heading">
+              <h2>Project overview</h2>
+              <VerificationBadge value={data.verification?.status} />
+            </div>
+            <div className="overview-grid">
+              <Info label="County" value={project.location.county} />
+              <Info label="Sub-county" value={project.location.sub_county} />
+              <Info label="Ward" value={project.location.ward} />
+              <Info label="Last verified" value={formatDate(project.last_verified_at)} />
+            </div>
+            {project.progress ? (
+              <div className="progress-card">
+                <div>
+                  <small>Reported project progress</small>
+                  <p>Reported on {formatDate(project.progress.reported_at)}. This is project metadata, not an independent verification finding.</p>
+                </div>
+                <ProgressBar value={project.progress.percentage} />
+              </div>
+            ) : (
+              <EmptyState title="No reported progress" body="The project record does not currently include a progress update." />
+            )}
+          </section>
+
+          <FinancialSummary project={project} />
+          <Timeline project={project} />
+          <VerificationPanel verification={data.verification} />
+          <ReviewSignals anomalies={data.anomalies} />
+          <Sources sources={data.sources} />
+          <ProjectEvidence claims={project.evidence} />
+          <Comments projectId={id} initialComments={data.comments} onChange={refresh} />
+        </div>
+
+        <aside className="detail-aside">
+          <ReportForm projectId={id} />
+          <EvidenceUpload projectId={id} />
+          {project.contractor ? (
+            <section className="aside-card">
+              <div className="aside-card__icon"><Icon name="projects" /></div>
+              <h2>Contractor</h2>
+              <strong>{project.contractor.legal_name}</strong>
+              <p>{project.contractor.award_reference}</p>
+              <span className="metadata-tag">{project.contractor.contract_status}</span>
+              {project.contractor.contract_end_date && <p>Contract end: {formatDate(project.contractor.contract_end_date)}</p>}
+            </section>
+          ) : (
+            <section className="aside-card">
+              <div className="aside-card__icon"><Icon name="folder" /></div>
+              <h2>Contractor</h2>
+              <p>No contractor record is available for this project.</p>
+            </section>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
 }
 
-function Info({ label, value }: { label: string; value: string }) { return <div className="info-cell"><small>{label}</small><strong>{value}</strong></div>; }
+function Info({ label, value }: { label: string; value: string }) {
+  return <div className="info-cell"><small>{label}</small><strong>{value}</strong></div>;
+}
 
 function FinancialSummary({ project }: { project: ProjectDetail }) {
   const entries = Object.entries(project.financial_summary).filter(([, value]) => value);
-  return <section className="detail-section"><div className="section-heading"><h2>Financial information</h2><span>Amounts reflect the published project record</span></div>{entries.length ? <div className="financial-grid">{entries.map(([key, fact]) => fact && <div className="finance-card" key={key}><small>{key.replace(/\b\w/g, (letter) => letter.toUpperCase())}</small><strong>{formatMoney(fact.amount, fact.currency)}</strong><p>{fact.financial_period}</p></div>)}</div> : <EmptyState title="No financial facts published" body="This project does not currently have public financial summary data."/>}</section>;
+  return (
+    <section className="detail-section">
+      <div className="section-heading">
+        <h2>Financial information</h2>
+        <span>Amounts reflect the published project record</span>
+      </div>
+      {entries.length ? (
+        <div className="financial-grid">
+          {entries.map(([key, fact]) => fact && (
+            <div className="finance-card" key={key}>
+              <small>{key.replace(/\b\w/g, (letter) => letter.toUpperCase())}</small>
+              <strong>{formatMoney(fact.amount, fact.currency)}</strong>
+              <p>{fact.financial_period}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No financial facts published" body="This project does not currently have public financial summary data." />
+      )}
+    </section>
+  );
 }
 
 function Timeline({ project }: { project: ProjectDetail }) {
   const timeline = project.timeline;
-  return <section className="detail-section"><div className="section-heading"><h2>Timeline</h2></div>{timeline ? <ol className="timeline"><li><i/><div><small>Planned start</small><strong>{formatDate(timeline.planned_start_date)}</strong></div></li><li><i/><div><small>Actual start</small><strong>{formatDate(timeline.actual_start_date)}</strong></div></li><li><i/><div><small>Expected completion</small><strong>{formatDate(timeline.expected_completion_date ?? timeline.planned_completion_date)}</strong></div></li></ol> : <EmptyState title="No timeline available" body="The project record does not currently include planned or actual dates."/>}</section>;
+  return (
+    <section className="detail-section">
+      <div className="section-heading">
+        <h2>Timeline</h2>
+        <Icon name="clock" size={16} />
+      </div>
+      {timeline ? (
+        <ol className="timeline">
+          <li><i /><div><small>Planned start</small><strong>{formatDate(timeline.planned_start_date)}</strong></div></li>
+          <li><i /><div><small>Actual start</small><strong>{formatDate(timeline.actual_start_date)}</strong></div></li>
+          <li><i /><div><small>Expected completion</small><strong>{formatDate(timeline.expected_completion_date ?? timeline.planned_completion_date)}</strong></div></li>
+        </ol>
+      ) : (
+        <EmptyState title="No timeline available" body="The project record does not currently include planned or actual dates." />
+      )}
+    </section>
+  );
 }
 
 function VerificationPanel({ verification }: { verification: ProjectVerification | null }) {
-  return <section className="detail-section verification-panel"><div className="section-heading"><h2>Verification</h2><VerificationBadge value={verification?.status}/></div>{verification ? <><p>{verification.notes}</p><div className="overview-grid"><Info label="Verification date" value={formatDate(verification.verification_date)}/><Info label="Recorded" value={formatDate(verification.recorded_at)}/></div>{verification.source && <p className="source-note">Source: <a href={verification.source.url} target="_blank" rel="noreferrer">{verification.source.title}</a></p>}</> : <p>This project has no active verification record and should be understood as <strong>Unverified</strong>. Citizen submissions and review signals below do not change that status.</p>}</section>;
+  return (
+    <section className="detail-section verification-panel">
+      <div className="section-heading">
+        <h2>Verification</h2>
+        <VerificationBadge value={verification?.status} />
+      </div>
+      {verification ? (
+        <>
+          <p>{verification.notes}</p>
+          <div className="overview-grid">
+            <Info label="Verification date" value={formatDate(verification.verification_date)} />
+            <Info label="Recorded" value={formatDate(verification.recorded_at)} />
+          </div>
+          {verification.source && (
+            <p className="source-note">Source: <a href={verification.source.url} target="_blank" rel="noreferrer">{verification.source.title}</a></p>
+          )}
+        </>
+      ) : (
+        <p>This project has no active verification record and should be understood as <strong>Unverified</strong>. Citizen submissions and review signals below do not change that status.</p>
+      )}
+    </section>
+  );
 }
 
 function ReviewSignals({ anomalies }: { anomalies: ProjectAnomaly[] }) {
-  return <section className="detail-section review-signals"><div className="section-heading"><h2>Review signals</h2><span>Not findings or accusations</span></div>{anomalies.length ? <div className="signal-list">{anomalies.map((signal, index) => <details className="signal-card" key={`${signal.type}-${index}`}><summary><span><StatusBadge kind="review" value={signal.status}/><strong>{signal.type.replaceAll("_", " ")}</strong></span><Icon name="arrow" size={16}/></summary><p>{signal.message}</p><p className="signal-copy">Requires verification: {signal.requires_verification ? "Yes" : "No"}. This deterministic review signal indicates a data gap or timeline review, not misconduct.</p>{signal.supporting_claims.length > 0 && <ul>{signal.supporting_claims.map((claim) => <li key={claim.claim_id}>Supporting claim: {claim.claim_id}</li>)}</ul>}</details>)}</div> : <EmptyState title="No review signals" body="The API has not returned deterministic review signals for this project."/>}</section>;
+  return (
+    <section className="detail-section review-signals">
+      <div className="section-heading">
+        <h2>Review signals</h2>
+        <span>Not findings or accusations</span>
+      </div>
+      {anomalies.length ? (
+        <div className="signal-list">
+          {anomalies.map((signal, index) => (
+            <details className="signal-card" key={`${signal.type}-${index}`}>
+              <summary>
+                <span><StatusBadge kind="review" value={signal.status} /><strong>{signal.type.replaceAll("_", " ")}</strong></span>
+                <Icon name="arrow" size={16} />
+              </summary>
+              <p>{signal.message}</p>
+              <p className="signal-copy">Requires verification: {signal.requires_verification ? "Yes" : "No"}. This deterministic review signal indicates a data gap or timeline review, not misconduct.</p>
+              {signal.supporting_claims.length > 0 && (
+                <ul>
+                  {signal.supporting_claims.map((claim) => <li key={claim.claim_id}>Supporting claim: {claim.claim_id}</li>)}
+                </ul>
+              )}
+            </details>
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No review signals" body="The API has not returned deterministic review signals for this project." />
+      )}
+    </section>
+  );
 }
 
 function Sources({ sources }: { sources: ClaimEvidence[] }) {
-  return <section className="detail-section"><div className="section-heading"><h2>Sources & provenance</h2></div>{sources.length ? <div className="source-list">{sources.map((claim) => <details key={claim.id} className="source-card"><summary><span><strong>{claim.field_name}</strong><small>{claim.claim_kind.replaceAll("_", " ")}</small></span><Icon name="arrow" size={16}/></summary><p>{claim.value_text}</p>{claim.numeric_value !== null && <p><strong>{formatMoney(claim.numeric_value, claim.currency ?? "KES")}</strong>{claim.financial_period ? ` · ${claim.financial_period}` : ""}</p>}<ul>{claim.sources.map((source) => <li key={source.source_id}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a><span>{source.publisher} · retrieved {formatDate(source.retrieved_at)}</span></li>)}</ul></details>)}</div> : <EmptyState title="No sources published" body="No claim-and-source chain is currently available for this project."/>}</section>;
+  return (
+    <section className="detail-section">
+      <div className="section-heading">
+        <h2>Sources &amp; provenance</h2>
+        <Icon name="download" size={16} />
+      </div>
+      {sources.length ? (
+        <div className="source-list">
+          {sources.map((claim) => (
+            <details key={claim.id} className="source-card">
+              <summary>
+                <span><strong>{claim.field_name}</strong><small>{claim.claim_kind.replaceAll("_", " ")}</small></span>
+                <Icon name="arrow" size={16} />
+              </summary>
+              <p>{claim.value_text}</p>
+              {claim.numeric_value !== null && (
+                <p><strong>{formatMoney(claim.numeric_value, claim.currency ?? "KES")}</strong>{claim.financial_period ? ` · ${claim.financial_period}` : ""}</p>
+              )}
+              <ul>
+                {claim.sources.map((source) => (
+                  <li key={source.source_id}>
+                    <a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
+                    <span>{source.publisher} · retrieved {formatDate(source.retrieved_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No sources published" body="No claim-and-source chain is currently available for this project." />
+      )}
+    </section>
+  );
 }
 
 function ProjectEvidence({ claims }: { claims: ClaimEvidence[] }) {
-  return <section className="detail-section"><div className="section-heading"><h2>Evidence references</h2><span>Supporting claims, not uploaded files</span></div>{claims.length ? <div className="evidence-claims">{claims.map((claim) => <article key={claim.id}><Icon name="evidence"/><div><strong>{claim.field_name}</strong><p>{claim.value_text}</p><small>{claim.sources.length} linked source{claim.sources.length === 1 ? "" : "s"}</small></div></article>)}</div> : <EmptyState title="No evidence references" body="The project detail does not contain linked evidence claims."/>}</section>;
+  return (
+    <section className="detail-section">
+      <div className="section-heading">
+        <h2>Evidence references</h2>
+        <span>Supporting claims, not uploaded files</span>
+      </div>
+      {claims.length ? (
+        <div className="evidence-claims">
+          {claims.map((claim) => (
+            <article key={claim.id}>
+              <Icon name="evidence" />
+              <div>
+                <strong>{claim.field_name}</strong>
+                <p>{claim.value_text}</p>
+                <small>{claim.sources.length} linked source{claim.sources.length === 1 ? "" : "s"}</small>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No evidence references" body="The project detail does not contain linked evidence claims." />
+      )}
+    </section>
+  );
 }
 
 function ReportForm({ projectId }: { projectId: string }) {
-  const [category, setCategory] = useState("QUALITY"); const [description, setDescription] = useState(""); const [contact, setContact] = useState(""); const [pending, setPending] = useState(false); const [message, setMessage] = useState(""); const [error, setError] = useState<unknown>();
-  const submit = async (event: FormEvent) => { event.preventDefault(); setError(undefined); setMessage(""); if (description.trim().length < 10) { setError(new ApiError("Description must be at least 10 characters", 422)); return; } setPending(true); try { const report = await createReport(projectId, { category: category as "QUALITY", description: description.trim(), contact_information: contact.trim() || undefined }); setMessage(`Report submitted. Save report ID ${report.id} to track its read-only status.`); setDescription(""); setContact(""); } catch (caught) { setError(caught); } finally { setPending(false); } };
-  return <section className="action-card"><div><Icon name="report"/><h2>Report an Issue</h2><p>Submit citizen information about this project. It is not verification.</p></div><form onSubmit={submit}><label>Issue category<select value={category} onChange={(event) => setCategory(event.target.value)}><option value="QUALITY">Quality</option><option value="DELAY">Delay</option><option value="ACCESS">Access</option><option value="SAFETY">Safety</option><option value="OTHER">Other</option></select></label><label>Description<textarea value={description} maxLength={4000} onChange={(event) => setDescription(event.target.value)} aria-invalid={Boolean(error && description.trim().length < 10)} placeholder="Describe the issue with at least 10 characters." required/><small>{description.length}/4000</small></label><label>Contact information <span>(optional)</span><input value={contact} maxLength={255} onChange={(event) => setContact(event.target.value)} /></label>{Boolean(error) && <p className="form-error" role="alert">{humanError(error)}</p>}{message && <p className="form-success" role="status">{message}</p>}<button className="button button--red button--full" disabled={pending}>{pending ? "Submitting…" : "Report an Issue"} <Icon name="arrow" size={15}/></button></form></section>;
+  const [category, setCategory] = useState("QUALITY");
+  const [description, setDescription] = useState("");
+  const [contact, setContact] = useState("");
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState<unknown>();
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(undefined);
+    setMessage("");
+    if (description.trim().length < 10) {
+      setError(new ApiError("Description must be at least 10 characters", 422));
+      return;
+    }
+    setPending(true);
+    try {
+      const report = await createReport(projectId, {
+        category: category as "QUALITY",
+        description: description.trim(),
+        contact_information: contact.trim() || undefined,
+      });
+      setMessage(`Report submitted. Save report ID ${report.id} to track its read-only status.`);
+      setDescription("");
+      setContact("");
+    } catch (caught) {
+      setError(caught);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <section className="action-card">
+      <div className="action-card__icon"><Icon name="report" /></div>
+      <h2>Report an Issue</h2>
+      <p>Submit citizen information about this project. It is not verification.</p>
+      <form onSubmit={submit} className="action-card__form">
+        <label>
+          Issue category
+          <select value={category} onChange={(event) => setCategory(event.target.value)}>
+            <option value="QUALITY">Quality</option>
+            <option value="DELAY">Delay</option>
+            <option value="ACCESS">Access</option>
+            <option value="SAFETY">Safety</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </label>
+        <label>
+          Description
+          <textarea value={description} maxLength={4000} onChange={(event) => setDescription(event.target.value)} aria-invalid={Boolean(error && description.trim().length < 10)} placeholder="Describe the issue with at least 10 characters." required />
+          <small>{description.length}/4000</small>
+        </label>
+        <label>
+          Contact information <span>(optional)</span>
+          <input value={contact} maxLength={255} onChange={(event) => setContact(event.target.value)} />
+        </label>
+        {Boolean(error) && <p className="form-error" role="alert">{humanError(error)}</p>}
+        {message && <p className="form-success" role="status">{message}</p>}
+        <button className="button button--red button--full" disabled={pending}>
+          {pending ? "Submitting…" : "Report an Issue"} <Icon name="arrow" size={15} />
+        </button>
+      </form>
+    </section>
+  );
 }
 
 function EvidenceUpload({ projectId }: { projectId: string }) {
-  const [file, setFile] = useState<File>(); const [uploader, setUploader] = useState(""); const [result, setResult] = useState<Evidence>(); const [error, setError] = useState<unknown>(); const [pending, setPending] = useState(false);
-  const submit = async (event: FormEvent) => { event.preventDefault(); setError(undefined); if (!file || !uploader) { setError(new ApiError("A file and contributor ID are required", 422)); return; } const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"]; if (!allowed.includes(file.type)) { setError(new ApiError("Unsupported evidence type", 422)); return; } setPending(true); try { const form = new FormData(); form.append("uploader_id", uploader); form.append("file", file); setResult(await uploadEvidence(`/projects/${projectId}/evidence`, form)); } catch (caught) { setError(caught); } finally { setPending(false); } };
-  return <section className="aside-card evidence-upload"><h2>Share evidence</h2><p>Accepted: PDF, JPG, PNG, WebP, or GIF. Public evidence is citizen-submitted and processed by the service.</p><form onSubmit={submit}><label>Contributor ID<input value={uploader} onChange={(event) => setUploader(event.target.value)} placeholder="UUID required by the API" required/></label><label className="file-input"><Icon name="upload"/> <span>{file?.name ?? "Choose a file"}</span><input type="file" accept=".pdf,image/jpeg,image/png,image/webp,image/gif" onChange={(event) => setFile(event.target.files?.[0])}/></label>{Boolean(error) && <p className="form-error">{humanError(error)}</p>}{result && <p className="form-success">Evidence received. <Link href={`/evidence/${result.id}`}>View metadata</Link></p>}<button className="button button--outline button--full" disabled={pending}>{pending ? "Uploading…" : "Upload evidence"}</button></form></section>;
+  const [file, setFile] = useState<File>();
+  const [uploader, setUploader] = useState("");
+  const [result, setResult] = useState<Evidence>();
+  const [error, setError] = useState<unknown>();
+  const [pending, setPending] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(undefined);
+    if (!file || !uploader) {
+      setError(new ApiError("A file and contributor ID are required", 422));
+      return;
+    }
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) {
+      setError(new ApiError("Unsupported evidence type", 422));
+      return;
+    }
+    setPending(true);
+    try {
+      const form = new FormData();
+      form.append("uploader_id", uploader);
+      form.append("file", file);
+      setResult(await uploadEvidence(`/projects/${projectId}/evidence`, form));
+    } catch (caught) {
+      setError(caught);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <section className="aside-card evidence-upload">
+      <div className="aside-card__icon"><Icon name="upload" /></div>
+      <h2>Share evidence</h2>
+      <p>Accepted: PDF, JPG, PNG, WebP, or GIF. Public evidence is citizen-submitted and processed by the service.</p>
+      <form onSubmit={submit}>
+        <label>
+          Contributor ID
+          <input value={uploader} onChange={(event) => setUploader(event.target.value)} placeholder="UUID required by the API" required />
+        </label>
+        <label className="file-input">
+          <Icon name="upload" /> <span>{file?.name ?? "Choose a file"}</span>
+          <input type="file" accept=".pdf,image/jpeg,image/png,image/webp,image/gif" onChange={(event) => setFile(event.target.files?.[0])} />
+        </label>
+        {Boolean(error) && <p className="form-error">{humanError(error)}</p>}
+        {result && <p className="form-success">Evidence received. <Link href={`/evidence/${result.id}`}>View metadata</Link></p>}
+        <button className="button button--outline button--full" disabled={pending}>
+          {pending ? "Uploading…" : "Upload evidence"}
+        </button>
+      </form>
+    </section>
+  );
 }
 
 function Comments({ projectId, initialComments, onChange }: { projectId: string; initialComments: CitizenComment[]; onChange: () => Promise<void> }) {
-  const [comments, setComments] = useState(initialComments); const [author, setAuthor] = useState(""); const [content, setContent] = useState(""); const [error, setError] = useState<unknown>(); const [pending, setPending] = useState(false); const [replyTo, setReplyTo] = useState<string>();
+  const [comments, setComments] = useState(initialComments);
+  const [author, setAuthor] = useState("");
+  const [content, setContent] = useState("");
+  const [error, setError] = useState<unknown>();
+  const [pending, setPending] = useState(false);
+  const [replyTo, setReplyTo] = useState<string>();
+
   useEffect(() => setComments(initialComments), [initialComments]);
-  const submit = async (event: FormEvent) => { event.preventDefault(); setError(undefined); if (!author || content.trim().length < 10) { setError(new ApiError("A contributor ID and a 10 character comment are required", 422)); return; } setPending(true); try { const newComment = await createComment(projectId, { author_id: author, content: content.trim(), parent_comment_id: replyTo }); setComments((current) => [...current, newComment]); setContent(""); setReplyTo(undefined); } catch (caught) { setError(caught); } finally { setPending(false); } };
-  return <section className="detail-section comments-section"><div className="section-heading"><h2>Community discussion</h2><span>Citizen-submitted information</span></div><p className="trust-copy">Comments are public civic discussion, not verified project facts.</p><form className="comment-form" onSubmit={submit}><label>Contributor ID<input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="UUID required by the API" required/></label><label>Your comment{replyTo && <small> Replying to a comment</small>}<textarea value={content} maxLength={4000} onChange={(event) => setContent(event.target.value)} placeholder="Share relevant, respectful information (at least 10 characters)." required/><small>{content.length}/4000</small></label>{Boolean(error) && <p className="form-error">{humanError(error)}</p>}<div><button className="button button--dark" disabled={pending}>{pending ? "Posting…" : "Post comment"}</button>{replyTo && <button className="text-button" type="button" onClick={() => setReplyTo(undefined)}>Cancel reply</button>}</div></form>{comments.length ? <div className="comment-list">{comments.map((comment) => <CommentCard key={comment.id} comment={comment} onReply={() => setReplyTo(comment.id)} onReport={onChange}/>)}</div> : <EmptyState title="No public comments yet" body="Be the first to add relevant, respectful civic information."/>}</section>;
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(undefined);
+    if (!author || content.trim().length < 10) {
+      setError(new ApiError("A contributor ID and a 10 character comment are required", 422));
+      return;
+    }
+    setPending(true);
+    try {
+      const newComment = await createComment(projectId, {
+        author_id: author,
+        content: content.trim(),
+        parent_comment_id: replyTo,
+      });
+      setComments((current) => [...current, newComment]);
+      setContent("");
+      setReplyTo(undefined);
+    } catch (caught) {
+      setError(caught);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <section className="detail-section comments-section">
+      <div className="section-heading">
+        <h2>Community discussion</h2>
+        <span>Citizen-submitted information</span>
+      </div>
+      <p className="trust-copy">Comments are public civic discussion, not verified project facts.</p>
+      <form className="comment-form" onSubmit={submit}>
+        <label>
+          Contributor ID
+          <input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="UUID required by the API" required />
+        </label>
+        <label>
+          Your comment{replyTo && <small> Replying to a comment</small>}
+          <textarea value={content} maxLength={4000} onChange={(event) => setContent(event.target.value)} placeholder="Share relevant, respectful information (at least 10 characters)." required />
+          <small>{content.length}/4000</small>
+        </label>
+        {Boolean(error) && <p className="form-error">{humanError(error)}</p>}
+        <div>
+          <button className="button button--dark" disabled={pending}>
+            {pending ? "Posting…" : "Post comment"}
+          </button>
+          {replyTo && <button className="text-button" type="button" onClick={() => setReplyTo(undefined)}>Cancel reply</button>}
+        </div>
+      </form>
+      {comments.length ? (
+        <div className="comment-list">
+          {comments.map((comment) => (
+            <CommentCard key={comment.id} comment={comment} onReply={() => setReplyTo(comment.id)} onReport={onChange} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No public comments yet" body="Be the first to add relevant, respectful civic information." />
+      )}
+    </section>
+  );
 }
 
 function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; onReply: () => void; onReport: () => void }) {
-  const [open, setOpen] = useState(false); const [reason, setReason] = useState("SPAM"); const [reporter, setReporter] = useState(""); const [message, setMessage] = useState(""); const [error, setError] = useState<unknown>();
-  const submit = async (event: FormEvent) => { event.preventDefault(); setError(undefined); try { await reportComment(comment.id, { reporter_id: reporter, reason }); setMessage("Comment report submitted for review."); onReport(); } catch (caught) { setError(caught); } };
-  return <article className={`comment-card ${comment.parent_comment_id ? "comment-card--reply" : ""}`}><div className="comment-card__head"><span className="comment-avatar">C</span><div><strong>Citizen contributor</strong><small>{formatDate(comment.created_at)} · {comment.trust_label.replaceAll("_", " ")}</small></div><span className="metadata-tag">{comment.moderation_state}</span></div><p>{comment.content}</p><div className="comment-actions"><button className="text-button" onClick={onReply}>Reply</button><button className="text-button" onClick={() => setOpen(!open)}>Report comment</button></div>{open && <form className="comment-report-form" onSubmit={submit}><input value={reporter} onChange={(event) => setReporter(event.target.value)} placeholder="Your UUID" required/><select value={reason} onChange={(event) => setReason(event.target.value)}><option value="SPAM">Spam</option><option value="HARASSMENT">Harassment</option><option value="PERSONAL_INFORMATION">Personal information</option><option value="INAPPROPRIATE">Inappropriate</option><option value="OTHER">Other</option></select><button className="button button--outline">Submit report</button>{Boolean(error) && <p className="form-error">{humanError(error)}</p>}{message && <p className="form-success">{message}</p>}</form>}</article>;
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("SPAM");
+  const [reporter, setReporter] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState<unknown>();
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(undefined);
+    try {
+      await reportComment(comment.id, { reporter_id: reporter, reason });
+      setMessage("Comment report submitted for review.");
+      onReport();
+    } catch (caught) {
+      setError(caught);
+    }
+  };
+
+  return (
+    <article className={`comment-card ${comment.parent_comment_id ? "comment-card--reply" : ""}`}>
+      <div className="comment-card__head">
+        <span className="comment-avatar">C</span>
+        <div>
+          <strong>Citizen contributor</strong>
+          <small>{formatDate(comment.created_at)} · {comment.trust_label.replaceAll("_", " ")}</small>
+        </div>
+        <span className="metadata-tag">{comment.moderation_state}</span>
+      </div>
+      <p>{comment.content}</p>
+      <div className="comment-actions">
+        <button className="text-button" onClick={onReply}>Reply</button>
+        <button className="text-button" onClick={() => setOpen(!open)}>Report comment</button>
+      </div>
+      {open && (
+        <form className="comment-report-form" onSubmit={submit}>
+          <input value={reporter} onChange={(event) => setReporter(event.target.value)} placeholder="Your UUID" required />
+          <select value={reason} onChange={(event) => setReason(event.target.value)}>
+            <option value="SPAM">Spam</option>
+            <option value="HARASSMENT">Harassment</option>
+            <option value="PERSONAL_INFORMATION">Personal information</option>
+            <option value="INAPPROPRIATE">Inappropriate</option>
+            <option value="OTHER">Other</option>
+          </select>
+          <button className="button button--outline">Submit report</button>
+          {Boolean(error) && <p className="form-error">{humanError(error)}</p>}
+          {message && <p className="form-success">{message}</p>}
+        </form>
+      )}
+    </article>
+  );
 }
