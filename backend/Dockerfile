@@ -14,7 +14,9 @@ WORKDIR /app
 
 FROM base AS builder
 
-RUN python -m venv /opt/venv
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade "pip==26.2.2"
 
 # Keep the project metadata explicit: the image build fails early when a package
 # dependency or the application package definition is invalid.
