@@ -43,6 +43,24 @@ class CitizenReportResponse(BaseModel):
     submitted_at: datetime
 
 
+class PublicReportListItem(BaseModel):
+    """List-safe report summary: no description or contact information."""
+
+    id: UUID
+    project_id: UUID
+    project_name: str
+    category: ReportCategory
+    status: ReportStatus
+    submitted_at: datetime
+
+
+class PublicReportPageResponse(BaseModel):
+    items: list[PublicReportListItem]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
+    total: int = Field(ge=0)
+
+
 class CitizenReportStatusHistoryResponse(BaseModel):
     """Public-safe representation of one report status transition."""
 

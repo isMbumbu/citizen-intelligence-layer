@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.civic_action import service
@@ -12,11 +12,13 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportDetailResponse,
     CitizenReportResponse,
     InstitutionResponseResponse,
+    PublicReportPageResponse,
     ReportComparisonResponse,
     ReportingChannelResponse,
     ReportInstitutionResponse,
 )
 from app.core.database import get_session
+from app.models.enums import ReportCategory, ReportStatus
 
 router = APIRouter(prefix="/projects", tags=["citizen reports"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -38,6 +40,30 @@ async def submit_project_report(
 
 
 report_router = APIRouter(prefix="/reports", tags=["citizen reports"])
+
+
+@report_router.get(
+    "",
+    response_model=PublicReportPageResponse,
+    summary="Browse citizen reports",
+)
+async def list_reports(
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    project_id: UUID | None = None,
+    status: ReportStatus | None = None,
+    category: ReportCategory | None = None,
+) -> PublicReportPageResponse:
+    """Return newest reports first, showing status but never report content."""
+    return await service.list_reports(
+        session,
+        project_id=project_id,
+        report_status=status,
+        category=category,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @report_router.get(
