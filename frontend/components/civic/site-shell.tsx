@@ -10,8 +10,8 @@ import { Brand, Icon } from "./ui";
 
 const nav = [
   { href: "/projects", label: "Projects", icon: "projects" as const },
-  { href: "/civic-action", label: "Civic Reports", icon: "report" as const },
-  { href: "/taxonomy", label: "Taxonomy", icon: "folder" as const },
+  { href: "/reports", label: "Reports", icon: "report" as const },
+  { href: "/categories", label: "Categories", icon: "folder" as const },
   { href: "/evidence", label: "Evidence", icon: "evidence" as const },
   { href: "/moderation", label: "Moderation", icon: "moderation" as const },
 ];

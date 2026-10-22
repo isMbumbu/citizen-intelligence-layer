@@ -375,9 +375,44 @@ export interface ModerationHistory {
 export interface CitizenReport {
   id: string;
   project_id: string;
-  category: string;
-  status: string;
+  category: ReportCategory;
+  status: ReportStatus;
   submitted_at: string;
+}
+
+export type ReportCategory = "QUALITY" | "DELAY" | "ACCESS" | "SAFETY" | "OTHER";
+
+export type ReportStatus =
+  | "SUBMITTED"
+  | "UNDER_REVIEW"
+  | "REFERRED"
+  | "RESPONDED"
+  | "RESOLVED"
+  | "CLOSED";
+
+/** List-safe report summary; the API never includes description or contact. */
+export interface PublicReportItem {
+  id: string;
+  project_id: string;
+  project_name: string;
+  category: ReportCategory;
+  status: ReportStatus;
+  submitted_at: string;
+}
+
+export interface PublicReportPage {
+  items: PublicReportItem[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface ReportFilters {
+  page?: number;
+  page_size?: number;
+  project_id?: string;
+  status?: ReportStatus;
+  category?: ReportCategory;
 }
 
 export interface ReportDetail {
@@ -566,6 +601,14 @@ export function moderate(
   });
 }
 
+export function fetchReports(filters: ReportFilters = {}): Promise<PublicReportPage> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  });
+  return apiFetch<PublicReportPage>(`/reports${params.size ? `?${params.toString()}` : ""}`);
+}
+
 export function fetchReport(reportId: string): Promise<ReportDetail> {
   return apiFetch<ReportDetail>(`/reports/${reportId}`);
 }
@@ -590,6 +633,3 @@ export function fetchReportStatus(reportId: string): Promise<ReportDetail> {
   return fetchReport(reportId);
 }
 
-export function fetchReportSearch(): Promise<unknown> {
-  return Promise.resolve({});
-}
