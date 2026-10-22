@@ -1,80 +1,101 @@
-<img width="1435" height="762" alt="Screenshot 2026-09-21 at 23 45 38" src="https://github.com/user-attachments/assets/f6d1194b-15c5-4abb-86d6-4abc719b5b9a" />
-
 # Citizen Intelligence Layer
 
-A citizen-first platform for understanding public projects, budgets, expenditure,
-contracts, evidence, and civic action.
+Citizen Intelligence Layer is a Kenyan public-interest platform for exploring public projects, understanding spending and sources, and sharing civic reports without presenting unverified information as fact.
 
-## Frontend
+The application is evidence-first: project records, official sources, citizen submissions, verification, and review signals are clearly presented as different kinds of information.
 
-The frontend is a Next.js application that presents public project information
-and evidence in a citizen-friendly interface.
+![CIVICACT homepage with public-project search and live public-information summary](frontend/public/docs-homepage.png)
 
-Run the frontend locally:
+## What citizens can do
 
-```bash
-cd frontend
-npm run dev
-```
+- Browse public project records by county, ward, category, project type, and lifecycle status.
+- Search projects and keep the search, filters, and pagination in the URL.
+- Read a project’s budget, timeline, contractor, reported progress, sources, evidence references, verification status, and review signals.
+- Submit a citizen report or supporting evidence from the relevant project record.
+- Track reports submitted from the current browser through **My reports**, or use a report reference from another device.
+- Explore project categories, counties, evidence and sources, and guidance on how the platform works.
 
-Open <http://localhost:3000>.
-<img width="1439" height="698" alt="Screenshot 2026-09-21 at 23 46 57" src="https://github.com/user-attachments/assets/baa98145-6bcc-465a-b716-7fb29395d7dc" />
+## Trust and safety model
 
-<img width="1423" height="749" alt="Screenshot 2026-09-21 at 23 47 20" src="https://github.com/user-attachments/assets/8be9364b-3f51-4699-8068-7f44b8e3bbd4" />
+The public interface uses clear language to distinguish content:
 
-<img width="427" height="556" alt="Screenshot 2026-09-21 at 23 47 40" src="https://github.com/user-attachments/assets/7fd761f1-0211-4d84-9104-a661417065e5" />
+| Label | Meaning |
+| --- | --- |
+| **Public project record** | Published project information shown by the platform. |
+| **Verified / Unverified** | The explicit verification state; a citizen report does not change it. |
+| **Reported progress** | A project update, not an independent verification finding. |
+| **Citizen submission** | A report, comment, photo, or document supplied by a citizen. |
+| **Review signal** | A prompt for further checking, never an accusation or finding. |
 
+Personal contact information, internal storage references, and contributor identifiers are not displayed publicly. Public moderation guidance is available under **Community safety**; moderation operations remain permission-restricted.
 
-See the complete frontend guide in [frontend/README.md](../frontend/README.md).
+## Public pages
 
-## Backend
+| Page | Purpose |
+| --- | --- |
+| `/` | Public-project discovery, county browsing, and civic-action entry points. |
+| `/projects` | Searchable and filterable public-project catalogue. |
+| `/projects/[id]` | Evidence-first project record and citizen-action surface. |
+| `/reports` | Public report list, filters, and browser-local **My reports**. |
+| `/categories` | Browse projects by category and subtype. |
+| `/evidence` | Evidence and source guidance; evidence is primarily discovered in project context. |
+| `/how-it-works` | Plain-language explanation of sources, verification, and review signals. |
+| `/community-safety` | Public safety, privacy, and content-reporting guidance. |
 
-<img width="1431" height="768" alt="Screenshot 2026-09-21 at 23 48 11" src="https://github.com/user-attachments/assets/556cff39-310b-403d-8fea-786730302020" />
+![Public project record showing trust summary, reported progress, finance, verification, and sources](frontend/public/docs-project-record.png)
 
+![Evidence and sources page from the running public site](frontend/public/docs-evidence-sources.png)
 
-The backend is an asynchronous FastAPI service with SQLModel persistence,
-PostgreSQL, Redis, Celery, RabbitMQ, and Alembic migrations.
+## Run locally
 
-The API exposes project records with:
-
-- Location and project details
-- Allocated, contracted, and spent amounts
-- Contractor and progress information
-- Verification status
-- Source and claim provenance
-- Evidence-grounded review flags
-- Citizen issue reports
-
-Run the complete stack:
+The complete local stack includes the Next.js frontend, FastAPI backend, PostgreSQL, Redis, RabbitMQ, and a Celery worker.
 
 ```bash
 docker compose up --build
 ```
 
-Useful endpoints:
+Then open:
 
 - Frontend: <http://localhost:3000>
 - API documentation: <http://localhost:8000/docs>
 - API health: <http://localhost:8000/health>
-- Project list: <http://localhost:8000/api/v1/projects>
+- Projects API: <http://localhost:8000/api/v1/projects>
 
-See the complete backend guide in [backend/README.md](../backend/README.md).
+To load the clearly labelled fictional Kenyan demonstration records:
 
-## Adding screenshots
-
-Store frontend screenshots and backend/API screenshots in this directory or in
-`frontend/public/`, then reference them with repository-relative Markdown:
-
-```markdown
-![Project explorer](../frontend/public/project-explorer.png)
-![API documentation](./api-docs.png)
+```bash
+docker compose exec api python -m app.seed_demo_data
 ```
 
-Keep image files small and use descriptive names. Screenshots should not include
-real credentials, personal information, or private API data.
+The seed command is idempotent and creates demonstration data only.
 
-## Evidence principle
+## Development
 
-Every material claim should remain traceable to its source record. Derived
-review flags are signals for verification, not accusations, and AI explanations
-must never replace the underlying evidence.
+Frontend only:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+The browser calls the same-origin frontend proxy. `/api/v1/*` is forwarded to FastAPI, while `/api/health` is forwarded to FastAPI’s health route. This keeps browser requests same-origin and avoids a separate CORS configuration.
+
+Useful frontend checks:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+Backend verification is documented in [backend/AGENTS.md](backend/AGENTS.md).
+
+## Architecture
+
+- **Frontend:** Next.js 16, React 19, TypeScript, and Tailwind CSS 4.
+- **Backend:** FastAPI, SQLModel, PostgreSQL, Alembic, Redis, Celery, and RabbitMQ.
+- **API client:** `frontend/lib/api.ts` is the single typed boundary for browser and server API requests.
+- **UI data loading:** reusable query hooks provide loading, timeout, retry, and stale-response handling.
+
+See [frontend/README.md](frontend/README.md) for frontend implementation details and [backend/README.md](backend/README.md) for backend setup.

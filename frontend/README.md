@@ -1,7 +1,25 @@
 # Citizen Intelligence Layer frontend
 
 Next.js 16 (App Router) with React 19, TypeScript, and Tailwind CSS 4. It
-consumes the FastAPI backend in `backend/`.
+provides the public CIVICACT experience and consumes the FastAPI backend in
+`backend/`.
+
+## Public experience
+
+The frontend helps citizens explore public projects, understand sources and
+verification, submit civic reports, and follow reports submitted from their
+browser. It separates public project records, verification, review signals,
+and citizen-submitted material in both wording and visual treatment.
+
+Key routes include:
+
+- `/projects` — searchable, URL-synchronised project catalogue.
+- `/projects/[id]` — project trust summary, finance, provenance, evidence,
+  reports, and comments.
+- `/reports` — public reports and browser-local report tracking.
+- `/categories` — project categories and subtypes.
+- `/evidence` — evidence and source guidance.
+- `/how-it-works` and `/community-safety` — public trust and safety guidance.
 
 ## Getting started
 
@@ -14,8 +32,8 @@ npm run dev
 
 3. Open <http://localhost:3000>.
 
-The home page renders the backend health status, so it doubles as a check that
-the API wiring works.
+The home page shows a live API health indicator and public-project count, so
+it doubles as a quick check that the frontend proxy and backend are connected.
 
 ## Docker
 
@@ -45,6 +63,8 @@ used to reach it, both handled by `lib/api.ts`:
   directly.
 - **Client components** fetch the same-origin `NEXT_PUBLIC_API_URL` prefix
   (default `/api/v1`), which `next.config.ts` rewrites to the backend.
+- The health indicator uses same-origin `/api/health`, which rewrites to the
+  backend’s `/health` endpoint.
 
 No CORS configuration is needed for client-side calls because the browser never
 talks to the backend origin.
@@ -60,8 +80,11 @@ npm run start   # serve the production build
 
 ## Conventions
 
-- Server-first: fetch data in Server Components and pass props down. Use
-  `"use client"` only for interactive islands (maps, filters, citations).
+- Keep `lib/api.ts` as the single typed API boundary. Reusable loading, retry,
+  and stale-response behavior lives in `lib/use-api-query.ts`.
+- Keep filter state in the URL so search results can be shared and revisited.
+- Use `"use client"` for interactive islands such as filters, forms, theme
+  choice, and report tracking; keep purely presentational pieces small.
 - Keep UI types in `lib/` and mirror backend Pydantic contracts. As domain
   endpoints land, generate types from the OpenAPI schema
   (`openapi-typescript` against `/openapi.json`) instead of hand-writing them.
