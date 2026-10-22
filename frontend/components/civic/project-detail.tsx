@@ -14,6 +14,7 @@ import {
   createComment,
   createReport,
   fetchAnomalies,
+  fetchReports,
   fetchComments,
   fetchProject,
   fetchProjectSources,
@@ -22,6 +23,7 @@ import {
   uploadEvidence,
 } from "@/lib/api";
 import { getContributorId } from "@/lib/contributor";
+import { rememberReport } from "@/lib/my-reports";
 import { useApiQuery } from "@/lib/use-api-query";
 import {
   EmptyState,
@@ -35,6 +37,7 @@ import {
   formatMoney,
   humanError,
 } from "./ui";
+import { ReportRow } from "./reports";
 
 type DetailData = {
   project: ProjectDetail;
@@ -117,11 +120,12 @@ export function ProjectDetailPage({ id }: { id: string }) {
           <ReviewSignals anomalies={data.anomalies} />
           <Sources sources={data.sources} />
           <ProjectEvidence claims={project.evidence} />
+          <ProjectReports projectId={id} />
           <Comments projectId={id} initialComments={data.comments} onChange={refresh} />
         </div>
 
         <aside className="detail-aside">
-          <ReportForm projectId={id} />
+          <ReportForm projectId={id} projectName={project.name} />
           <EvidenceUpload projectId={id} />
           {project.contractor ? (
             <section className="aside-card">
@@ -349,7 +353,25 @@ function ProjectEvidence({ claims }: { claims: ClaimEvidence[] }) {
   );
 }
 
-function ReportForm({ projectId }: { projectId: string }) {
+function ProjectReports({ projectId }: { projectId: string }) {
+  const query = useCallback(() => fetchReports({ project_id: projectId, page_size: 5 }), [projectId]);
+  const { data, error, loading, refresh } = useApiQuery(query);
+  return (
+    <section className="detail-section" id="reports">
+      <div className="section-heading">
+        <h2>Citizen reports</h2>
+        {data && data.total > 0 ? <Link href={`/reports?project_id=${projectId}`}>See all {data.total}</Link> : <span>Citizen submissions, not verified findings</span>}
+      </div>
+      {loading ? <LoadingSkeleton lines={3} /> : error ? <ErrorState error={error} retry={() => void refresh()} /> : data && data.items.length ? (
+        <ul className="report-list">{data.items.map((report) => <ReportRow key={report.id} report={report} showProject={false} />)}</ul>
+      ) : (
+        <EmptyState title="No reports yet" body="No citizen has reported an issue on this project. Use the form to report one." />
+      )}
+    </section>
+  );
+}
+
+function ReportForm({ projectId, projectName }: { projectId: string; projectName: string }) {
   const [category, setCategory] = useState("QUALITY");
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
@@ -371,10 +393,11 @@ function ReportForm({ projectId }: { projectId: string }) {
     setPending(true);
     try {
       const report = await createReport(projectId, {
-        category: category as "QUALITY",
+        category,
         description: description.trim(),
         contact_information: contact.trim() || undefined,
       });
+      rememberReport({ id: report.id, project_id: projectId, project_name: projectName, category: report.category, submitted_at: report.submitted_at });
       setSubmitted(report.id);
       setDescription("");
       setContact("");
@@ -414,7 +437,7 @@ function ReportForm({ projectId }: { projectId: string }) {
         {Boolean(error) && <p className="form-error" role="alert">{humanError(error)}</p>}
         {submitted && (
           <div className="form-success" role="status">
-            <p>Report submitted. Save this reference to check its status later:</p>
+            <p>Report submitted. It is saved under <Link href="/reports">My reports</Link> in this browser. Your reference:</p>
             <code className="report-reference">{submitted}</code>
             <Link href={`/reports/${submitted}`}>Track this report <Icon name="arrow" size={13} /></Link>
           </div>

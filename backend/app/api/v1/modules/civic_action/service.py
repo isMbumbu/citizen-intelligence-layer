@@ -14,6 +14,8 @@ from app.api.v1.modules.civic_action.schemas import (
     CitizenReportResponse,
     CitizenReportStatusHistoryResponse,
     InstitutionResponseResponse,
+    PublicReportListItem,
+    PublicReportPageResponse,
     ReportComparisonResponse,
     ReportingChannelResponse,
     ReportInstitutionResponse,
@@ -91,6 +93,43 @@ async def submit_report(
         category=ReportCategory(report.category),
         status=ReportStatus(report.status),
         submitted_at=report.submitted_at,
+    )
+
+
+async def list_reports(
+    session: AsyncSession,
+    *,
+    project_id: UUID | None,
+    report_status: ReportStatus | None,
+    category: ReportCategory | None,
+    page: int,
+    page_size: int,
+) -> PublicReportPageResponse:
+    """Return a public report page without descriptions or contact details."""
+    rows, total = await repository.list_public_reports(
+        session,
+        project_id=project_id,
+        status=report_status.value if report_status is not None else None,
+        category=category.value if category is not None else None,
+        offset=(page - 1) * page_size,
+        limit=page_size,
+    )
+    logger.info("Listed %s report(s) from %s matching record(s)", len(rows), total)
+    return PublicReportPageResponse(
+        items=[
+            PublicReportListItem(
+                id=report.id,
+                project_id=report.project_id,
+                project_name=project_name,
+                category=ReportCategory(report.category),
+                status=ReportStatus(report.status),
+                submitted_at=report.submitted_at,
+            )
+            for report, project_name in rows
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
     )
 
 

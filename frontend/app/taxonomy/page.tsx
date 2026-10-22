@@ -1,5 +1,4 @@
-import { TaxonomyPage } from "@/components/civic/support-pages";
-import { SiteShell } from "@/components/civic/site-shell";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-export default function Taxonomy() { return <SiteShell><TaxonomyPage/></SiteShell>; }
+// The taxonomy page is now "Categories"; keep old links working.
+export default function Taxonomy() { redirect("/categories"); }

@@ -1,8 +1,9 @@
 """Asynchronous SQLModel persistence functions for citizen issue reports."""
 
+from typing import Any
 from uuid import UUID
 
-from sqlmodel import col, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel.sql.expression import Select
 
@@ -12,6 +13,7 @@ from app.models.vertical_slice import (
     CitizenReportStatusTransition,
     Institution,
     InstitutionResponse,
+    Project,
     ReportingChannel,
     ReportInstitutionLink,
 )
@@ -42,6 +44,41 @@ async def get(
 ) -> CitizenIssueReport | None:
     """Return one citizen issue report by identifier."""
     return await session.get(CitizenIssueReport, report_id)
+
+
+async def list_public_reports(
+    session: AsyncSession,
+    *,
+    project_id: UUID | None,
+    status: str | None,
+    category: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[tuple[CitizenIssueReport, str]], int]:
+    """Return one newest-first report page with project names and the total."""
+    conditions: list[Any] = []
+    if project_id is not None:
+        conditions.append(CitizenIssueReport.project_id == project_id)
+    if status is not None:
+        conditions.append(CitizenIssueReport.status == status)
+    if category is not None:
+        conditions.append(CitizenIssueReport.category == category)
+    page = await session.exec(
+        select(CitizenIssueReport, Project.name)
+        .select_from(CitizenIssueReport)
+        .join(Project, col(CitizenIssueReport.project_id) == col(Project.id))
+        .where(*conditions)
+        .order_by(
+            col(CitizenIssueReport.submitted_at).desc(),
+            col(CitizenIssueReport.id),
+        )
+        .offset(offset)
+        .limit(limit)
+    )
+    total = await session.exec(
+        select(func.count()).select_from(CitizenIssueReport).where(*conditions)
+    )
+    return [(report, name) for report, name in page.all()], total.one()
 
 
 async def list_status_history(
