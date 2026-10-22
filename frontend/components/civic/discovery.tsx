@@ -54,10 +54,11 @@ export function ProjectCard({ project, detail }: { project: ProjectListItem; det
       <div className="project-card__meta"><span>{project.location.county}</span><span aria-hidden="true">·</span><span>{project.location.ward}</span><span aria-hidden="true">·</span><span className="project-card__cat-label">{project.category.name}</span></div>
       <h3 className="project-card__title"><Link href={`/projects/${project.id}`}>{project.name}</Link></h3>
       <p className="project-card__description">{project.description}</p>
-      <div className="project-card__metrics">
-        <div className="project-card__finance"><span className="project-card__finance-label">{finance?.kind ? finance.kind.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Financial data"}</span><strong>{finance ? formatMoney(finance.amount, finance.currency) : "Not available"}</strong></div>
-        {detail?.progress && <div className="project-card__progress"><span className="project-card__finance-label">Reported progress</span><ProgressBar value={detail.progress.percentage}/></div>}
-      </div>
+      {project.subtype || project.project_type ? <div className="project-card__tags">{project.subtype && <span className="project-card__tag">{project.subtype.name}</span>}{project.project_type && <span className="project-card__tag">{project.project_type}</span>}</div> : null}
+      {detail ? <div className="project-card__metrics">
+        <div className="project-card__finance"><span className="project-card__finance-label">{finance?.kind ? finance.kind.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Financial data"}</span><strong>{finance ? formatMoney(finance.amount, finance.currency) : "Not published"}</strong></div>
+        {detail.progress && <div className="project-card__progress"><span className="project-card__finance-label">Reported progress</span><ProgressBar value={detail.progress.percentage}/></div>}
+      </div> : <p className="project-card__record-hint">Budget, reported progress and sources are on the project record.</p>}
       <div className="project-card__footer"><span className="project-card__audit-mark"><Icon name="evidence" size={13}/> Public record</span><Link className="project-card__cta" href={`/projects/${project.id}`}>Inspect record <Icon name="arrow" size={13}/></Link></div>
     </div>
   </article>;
@@ -137,16 +138,17 @@ export function ProjectExplorer({ title = "All Projects", intro, featured = fals
   </section>;
 }
 
-function PlatformStats({ projectCount }: { projectCount: number | undefined }) {
-  const stats = [
-    { label: "Public projects", value: projectCount === undefined ? "Loading" : projectCount.toLocaleString("en-KE"), note: "Records available now" },
-    { label: "Financial records", value: "By project", note: "Open a record for details" },
-    { label: "Citizen reports", value: "Track by code", note: "Use your report reference" },
-    { label: "Evidence", value: "Project linked", note: "Sources shown with records" },
+function PlatformStats({ projectCount, failed }: { projectCount: number | undefined; failed: boolean }) {
+  const count = failed ? "Unavailable" : projectCount === undefined ? "Loading…" : projectCount.toLocaleString("en-KE");
+  const paths = [
+    { href: "/projects", icon: "folder" as const, title: "Budgets and spending", note: "Open a project record to see published financial figures" },
+    { href: "/civic-action", icon: "clock" as const, title: "Track a citizen report", note: "Use the reference you received after submitting" },
+    { href: "/evidence", icon: "evidence" as const, title: "Evidence and sources", note: "Review material linked to project records" },
   ];
   return <aside className="hero-metric-card" aria-label="Public information available">
     <div className="hero-metric-card__header"><h2>Public information</h2><span className="font-mono text-xs">API v1</span></div>
-    <div className="hero-metrics-grid">{stats.map((item) => <div className="hero-metric" key={item.label}><span className="hero-metric__label">{item.label}</span><strong>{item.value}</strong><small>{item.note}</small></div>)}</div>
+    <div className="hero-metric hero-metric--live"><span className="hero-metric__label">Public project records</span><strong aria-live="polite">{count}</strong><small>{failed ? "The project service did not respond" : "Live count from the project service"}</small></div>
+    <ul className="hero-info-links">{paths.map((item) => <li key={item.title}><Link href={item.href}><Icon name={item.icon} size={16}/><span><strong>{item.title}</strong><small>{item.note}</small></span><Icon name="arrow" size={14}/></Link></li>)}</ul>
     <Link href="/projects" className="button button--outline button--full hero-metric-card__cta"><Icon name="projects" size={15}/><span>Browse project records</span></Link>
   </aside>;
 }
@@ -190,9 +192,9 @@ export function CivicHome() {
             <input value={search} onChange={(event) => setSearch(event.target.value)} maxLength={120} placeholder="Search by project name, county, ward, or contractor..." aria-label="Search public projects"/>
             <button type="submit" className="button button--red">Explore Projects</button>
           </form>
-          <div className="hero-quick-tags"><span className="hero-quick-tags__label">Browse:</span><Link href="/projects" className="hero-tag">Public projects</Link><Link href="/evidence" className="hero-tag">Evidence &amp; sources</Link><Link href="/civic-action" className="hero-tag">Civic reports</Link></div>
+          <div className="hero-quick-tags"><span className="hero-quick-tags__label">Browse:</span><Link href="/projects" className="hero-tag">Public projects</Link><Link href="/evidence" className="hero-tag">Evidence &amp; sources</Link><Link href="/civic-action" className="hero-tag">Civic reports</Link><Link href="/projects" className="hero-tag hero-tag--filters"><Icon name="filter" size={13}/> Filter by county, category or status</Link></div>
         </div>
-        <PlatformStats projectCount={data?.total}/>
+        <PlatformStats projectCount={data?.total} failed={Boolean(error)}/>
       </div>
     </section>
 

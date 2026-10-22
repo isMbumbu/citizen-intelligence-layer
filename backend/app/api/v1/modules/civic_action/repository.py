@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.expression import Select
 
 from app.core.logging import logger
 from app.models.vertical_slice import (
@@ -195,19 +196,38 @@ async def create_institution_response(
     return response
 
 
-async def list_institution_responses(
-    session: AsyncSession,
+def institution_responses_statement(
     report_id: UUID,
-) -> list[tuple[InstitutionResponse, ReportInstitutionLink, Institution]]:
-    """Return report responses with their public institution relationship data."""
-    result = await session.exec(
+) -> Select[InstitutionResponse, ReportInstitutionLink, Institution]:
+    """Build the report-response query with explicit join conditions.
+
+    Institution responses reach institutions only through report links, so both
+    joins name their ON clause rather than relying on foreign-key inference.
+    """
+    return (
         select(InstitutionResponse, ReportInstitutionLink, Institution)
-        .join(ReportInstitutionLink)
-        .join(Institution)
+        .select_from(InstitutionResponse)
+        .join(
+            ReportInstitutionLink,
+            col(InstitutionResponse.report_institution_link_id)
+            == col(ReportInstitutionLink.id),
+        )
+        .join(
+            Institution,
+            col(ReportInstitutionLink.institution_id) == col(Institution.id),
+        )
         .where(ReportInstitutionLink.report_id == report_id)
         .order_by(
             col(InstitutionResponse.created_at),
             col(InstitutionResponse.id),
         )
     )
+
+
+async def list_institution_responses(
+    session: AsyncSession,
+    report_id: UUID,
+) -> list[tuple[InstitutionResponse, ReportInstitutionLink, Institution]]:
+    """Return report responses with their public institution relationship data."""
+    result = await session.exec(institution_responses_statement(report_id))
     return list(result.all())

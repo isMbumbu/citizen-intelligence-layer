@@ -56,7 +56,9 @@ export function humanError(error: unknown): string {
   if (error.status === 401 || error.status === 403) return "You do not have permission to view this item. Public access is not available.";
   if (error.status === 404) return "This public record could not be found.";
   if (error.status === 409) return "That action conflicts with the record’s current state. Refresh and try again.";
-  if (error.status === 422) return "Please check the information entered and try again.";
+  // Errors raised by client-side validation carry a specific message and no
+  // server detail; the API's own 422 body does not identify the field.
+  if (error.status === 422) return error.detail === undefined ? error.message : "Please check the information entered and try again.";
   if (error.status === 429) return `Too many requests. Please try again${error.retryAfter ? ` in ${error.retryAfter} seconds` : ""}.`;
   if (error.status === 503) return "The public service is temporarily unavailable. Please try again later.";
   return "We could not complete that request. Please try again.";
