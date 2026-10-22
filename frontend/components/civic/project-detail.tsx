@@ -356,15 +356,18 @@ function ReportForm({ projectId }: { projectId: string }) {
   const [pending, setPending] = useState(false);
   const [submitted, setSubmitted] = useState<string>();
   const [error, setError] = useState<unknown>();
+  const [descriptionError, setDescriptionError] = useState("");
+  const descriptionLength = description.trim().length;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(undefined);
     setSubmitted(undefined);
-    if (description.trim().length < 10) {
-      setError(new ApiError("Description must be at least 10 characters", 422));
+    if (descriptionLength < 10) {
+      setDescriptionError(`The description needs at least 10 characters. Add ${10 - descriptionLength} more.`);
       return;
     }
+    setDescriptionError("");
     setPending(true);
     try {
       const report = await createReport(projectId, {
@@ -400,11 +403,11 @@ function ReportForm({ projectId }: { projectId: string }) {
         </label>
         <label>
           Description
-          <textarea value={description} maxLength={4000} onChange={(event) => setDescription(event.target.value)} aria-invalid={Boolean(error && description.trim().length < 10)} placeholder="Describe the issue with at least 10 characters." required />
-          <small>{description.length}/4000</small>
+          <textarea value={description} maxLength={4000} onChange={(event) => { setDescription(event.target.value); if (descriptionError && event.target.value.trim().length >= 10) setDescriptionError(""); }} aria-invalid={Boolean(descriptionError)} aria-describedby="report-description-help" placeholder="Describe the issue with at least 10 characters." required />
+          <small id="report-description-help" className={descriptionError ? "field-error" : undefined}>{descriptionError || (descriptionLength < 10 ? `${descriptionLength}/10 characters minimum` : `${description.length}/4000`)}</small>
         </label>
         <label>
-          Phone or email <span>(optional)</span>
+          <span>Phone or email <span className="field-optional">(optional)</span></span>
           <input value={contact} maxLength={255} placeholder="Leave blank to report anonymously" onChange={(event) => setContact(event.target.value)} />
           <small>Stored with your report only. It is never shown publicly.</small>
         </label>

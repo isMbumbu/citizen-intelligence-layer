@@ -3900,3 +3900,17 @@ html[data-theme="dark"] .file-input {
 html[data-theme="dark"] .report-reference {
   background: rgba(0, 0, 0, 0.25);
 }
+
+.field-error {
+  color: var(--brand-red-dark);
+  font-weight: 600;
+}
+
+.field-optional {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+html[data-theme="dark"] .field-error {
+  color: #fca5a5;
+}
