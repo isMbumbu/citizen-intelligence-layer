@@ -45,7 +45,7 @@ export function Header() {
       <div className="site-header__inner">
         <Brand />
         <nav className="primary-nav" aria-label="Primary navigation">
-          {nav.map((item) => <Link key={item.href} className={isActive(pathname, item.href) ? "is-active" : ""} href={item.href}><Icon name={item.icon} size={15}/><span>{item.label}</span></Link>)}
+          {nav.map((item) => <Link key={item.href} className={`primary-nav__link ${isActive(pathname, item.href) ? "is-active" : ""}`} href={item.href}><Icon name={item.icon} size={16}/><span>{item.label}</span></Link>)}
         </nav>
         <div className="header-actions">
           <Link href="/projects" className="header-search" aria-label="Search public projects"><Icon name="search" size={19}/></Link>
@@ -57,7 +57,7 @@ export function Header() {
         </div>
       </div>
       {open && <nav id="mobile-nav" className="mobile-nav" aria-label="Mobile navigation">
-        {nav.map((item) => <Link key={item.href} className={isActive(pathname, item.href) ? "is-active" : ""} href={item.href}><Icon name={item.icon} size={18}/><span>{item.label}</span></Link>)}
+        {nav.map((item) => <Link key={item.href} className={`mobile-nav__link ${isActive(pathname, item.href) ? "is-active" : ""}`} href={item.href}><Icon name={item.icon} size={18}/><span>{item.label}</span></Link>)}
         <StatusIndicator />
       </nav>}
     </header>
