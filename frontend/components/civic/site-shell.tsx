@@ -12,8 +12,8 @@ const nav = [
   { href: "/projects", label: "Projects", icon: "projects" as const },
   { href: "/reports", label: "Reports", icon: "report" as const },
   { href: "/categories", label: "Categories", icon: "folder" as const },
-  { href: "/evidence", label: "Evidence", icon: "evidence" as const },
-  { href: "/moderation", label: "Moderation", icon: "moderation" as const },
+  { href: "/evidence", label: "Evidence & Sources", icon: "evidence" as const },
+  { href: "/how-it-works", label: "How it works", icon: "shield" as const },
 ];
 
 function isActive(path: string, href: string) {
@@ -110,7 +110,7 @@ export function Header() {
 export function Footer() {
   return <footer className="site-footer"><div className="site-footer__inner">
     <div className="footer-brand"><Brand inverse/><p>Public information citizens can understand, verify and act on.</p></div>
-    <nav className="footer-nav" aria-label="Footer navigation"><Link href="/about">About</Link><Link href="/help">Help</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav>
+    <nav className="footer-nav" aria-label="Footer navigation"><Link href="/about">About</Link><Link href="/how-it-works">How it works</Link><Link href="/community-safety">Community safety</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav>
     <div className="footer-status"><span className="font-mono text-xs">API v1</span><StatusIndicator compact/></div>
   </div></footer>;
 }

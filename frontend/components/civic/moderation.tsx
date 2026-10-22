@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { type ModerationHistory, fetchModerationHistory, moderate } from "@/lib/api";
 import { EmptyState, ErrorState, Icon, formatDate, humanError } from "./ui";
@@ -57,9 +58,9 @@ export function ModerationPage() {
     <div>
       <section className="page-intro">
         <div className="content-wrap">
-          <p className="eyebrow">MODERATION</p>
-          <h1>Protected moderation workspace</h1>
-          <p>Moderation is restricted to authorized reviewers. CIVICACT does not offer a public login or token flow.</p>
+          <p className="eyebrow">STAFF ONLY</p>
+          <h1>Staff moderation tool</h1>
+          <p>For authorised reviewers only. Actions are refused unless the backend grants moderator permission; there is no public sign-in. Looking to report harmful content? See <Link href="/community-safety">Community safety</Link>.</p>
         </div>
       </section>
       <div className="content-wrap moderation-grid">
