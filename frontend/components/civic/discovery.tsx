@@ -13,6 +13,7 @@ import { HeroCarousel } from "./hero-carousel";
 type FilterState = Omit<ProjectFilters, "page" | "page_size">;
 const blankFilters: FilterState = { search: "", county: "", ward: "", project_type: "", category_id: "", subtype_id: "", status: undefined };
 const statuses: ProjectStatus[] = ["PLANNED", "IN_PROGRESS", "COMPLETED", "ON_HOLD"];
+const heroWords = ["Accountable", "Transparent", "Community-led", "Evidence-based"];
 
 function filtersFromParams(params: URLSearchParams): FilterState {
   const status = params.get("status");
@@ -145,12 +146,26 @@ function PlatformStats({ projectCount }: { projectCount: number | undefined }) {
   </aside>;
 }
 
+function RotatingHeroWord() {
+  const [activeWord, setActiveWord] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => {
+      setActiveWord((current) => (current + 1) % heroWords.length);
+    }, 2800);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return <strong key={heroWords[activeWord]} className="hero-heading__changing" aria-hidden="true">{heroWords[activeWord]}</strong>;
+}
+
 export function CivicHome() {
   const query = useCallback(() => fetchProjects({ page_size: 4 }), []);
   const { data, error, loading, refresh } = useApiQuery(query);
   const featured = data?.items ?? [];
   const router = useRouter();
   const [search, setSearch] = useState("");
+
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = search.trim();
@@ -163,7 +178,7 @@ export function CivicHome() {
       <div className="content-wrap hero-section__content">
         <div className="hero-section__text">
           <div className="hero-kicker"><span>REPUBLIC OF KENYA</span><span className="hero-kicker__flag" aria-hidden="true"><i className="flag-green"/><i className="flag-red"/><i className="flag-white"/></span><span>CITIZEN INTELLIGENCE LAYER</span></div>
-          <h1 className="hero-heading">Better public projects.<br/><strong>Accountable</strong> communities.</h1>
+          <h1 className="hero-heading" aria-label="Better public projects. Accountable communities.">Better public projects.<br/><RotatingHeroWord/> communities.</h1>
           <p className="hero-lead">Explore public project records, follow budgets and sources, and report what you see in your community.</p>
           <form className="hero-search-bar" onSubmit={submitSearch}>
             <Icon name="search" size={20} className="hero-search-bar__icon"/>
