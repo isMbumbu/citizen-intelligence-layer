@@ -9,47 +9,115 @@ import { useApiQuery } from "@/lib/use-api-query";
 import { Brand, Icon } from "./ui";
 
 const nav = [
-  { href: "/", label: "Home", icon: "home" as const },
   { href: "/projects", label: "Projects", icon: "projects" as const },
-  { href: "/civic-action", label: "Civic Action / Reports", icon: "report" as const },
-  { href: "/comments", label: "Comments", icon: "comment" as const },
+  { href: "/civic-action", label: "Civic Reports", icon: "report" as const },
+  { href: "/taxonomy", label: "Taxonomy", icon: "folder" as const },
   { href: "/evidence", label: "Evidence", icon: "evidence" as const },
   { href: "/moderation", label: "Moderation", icon: "moderation" as const },
 ];
 
 function isActive(path: string, href: string) {
-  return href === "/" ? path === "/" : path.startsWith(href);
+  return path === href || (href !== "/" && path.startsWith(`${href}/`));
 }
 
 export function StatusIndicator({ compact = false }: { compact?: boolean }) {
   const { data, loading, refresh } = useApiQuery(fetchHealth, { retries: 0 });
   const status = loading ? "checking" : data?.status === "ok" ? "online" : "offline";
-  const label = status === "online" ? "Backend Online" : status === "checking" ? "Checking backend" : "Backend unavailable";
-  return <span className={`backend-status backend-status--${status}`} title={label} aria-live="polite"><i />{!compact && <span><strong>{label}</strong><small>{status === "online" ? "Live public data" : "API v1"}</small></span>}{status === "offline" && <button type="button" className="status-retry" onClick={() => void refresh()} aria-label="Retry backend connection">Retry</button>}</span>;
+  const label = status === "online" ? "System live" : status === "checking" ? "Checking API" : "API unavailable";
+
+  return (
+    <span className={`status-pill status-pill--${status}`} title={label} aria-live="polite">
+      <span className="status-pill__dot" aria-hidden="true" />
+      {!compact && <span className="status-pill__label font-mono">{label}</span>}
+      {status === "offline" && <button type="button" className="status-pill__retry" onClick={() => void refresh()} aria-label="Retry API connection">Retry</button>}
+    </span>
+  );
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = window.localStorage.getItem("civicact-theme");
+    } catch {
+      // Keep using the system preference when storage is unavailable.
+    }
+    const selected = saved === "dark" || saved === "light"
+      ? saved
+      : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = selected;
+    setTheme(selected);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try {
+      window.localStorage.setItem("civicact-theme", next);
+    } catch {
+      // Apply the selected theme for this session even if storage is unavailable.
+    }
+    setTheme(next);
+  };
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+      title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+    >
+      <Icon name={theme === "dark" ? "sun" : "moon"} size={17} />
+    </button>
+  );
 }
 
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
   useEffect(() => setOpen(false), [pathname]);
-  return <header className="site-header">
-    <div className="site-header__inner">
-      <Brand />
-      <nav className="primary-nav" aria-label="Primary navigation">{nav.map((item) => <Link key={item.href} className={isActive(pathname, item.href) ? "is-active" : ""} href={item.href}><Icon name={item.icon} size={15}/><span>{item.label}</span></Link>)}</nav>
-      <div className="header-actions"><Link href="/projects" className="header-search" aria-label="Search projects"><Icon name="search" size={19}/></Link><span className="header-divider"/><StatusIndicator/><button className="menu-button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-nav" aria-label={open ? "Close menu" : "Open menu"}><Icon name={open ? "close" : "menu"} size={22}/></button></div>
-    </div>
-    {open && <nav id="mobile-nav" className="mobile-nav" aria-label="Mobile navigation">{nav.map((item) => <Link key={item.href} className={isActive(pathname, item.href) ? "is-active" : ""} href={item.href}><Icon name={item.icon}/>{item.label}</Link>)}<StatusIndicator/></nav>}
-  </header>;
+
+  return (
+    <header className="site-header">
+      <div className="site-header__inner">
+        <Brand />
+        <nav className="primary-nav" aria-label="Primary navigation">
+          {nav.map((item) => <Link key={item.href} className={`primary-nav__link ${isActive(pathname, item.href) ? "is-active" : ""}`} href={item.href}><Icon name={item.icon} size={16}/><span>{item.label}</span></Link>)}
+        </nav>
+        <div className="header-actions">
+          <Link href="/projects" className="header-search" aria-label="Search public projects"><Icon name="search" size={19}/></Link>
+          <ThemeToggle />
+          <span className="header-divider" aria-hidden="true"/>
+          <StatusIndicator />
+          <button type="button" className="menu-button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="mobile-nav" aria-label={open ? "Close menu" : "Open menu"}>
+            <Icon name={open ? "close" : "menu"} size={22}/>
+          </button>
+        </div>
+      </div>
+      {open && <nav id="mobile-nav" className="mobile-nav" aria-label="Mobile navigation">
+        {nav.map((item) => <Link key={item.href} className={`mobile-nav__link ${isActive(pathname, item.href) ? "is-active" : ""}`} href={item.href}><Icon name={item.icon} size={18}/><span>{item.label}</span></Link>)}
+        <StatusIndicator />
+      </nav>}
+    </header>
+  );
 }
 
 export function Footer() {
-  return <footer className="site-footer"><div className="site-footer__inner"><div className="footer-brand"><Brand inverse/><p>Public information citizens can understand, verify and act on.</p></div><nav aria-label="Footer navigation"><Link href="/about">About</Link><Link href="/help">Help</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav><div className="footer-status"><span>API v1</span><StatusIndicator compact/></div></div></footer>;
+  return <footer className="site-footer"><div className="site-footer__inner">
+    <div className="footer-brand"><Brand inverse/><p>Public information citizens can understand, verify and act on.</p></div>
+    <nav className="footer-nav" aria-label="Footer navigation"><Link href="/about">About</Link><Link href="/help">Help</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav>
+    <div className="footer-status"><span className="font-mono text-xs">API v1</span><StatusIndicator compact/></div>
+  </div></footer>;
 }
 
 export function SiteShell({ children }: { children: ReactNode }) {
-  return <div className="app-shell"><Header/><main>{children}</main><Footer/></div>;
+  return <div className="app-shell"><Header/><main className="app-main">{children}</main><Footer/></div>;
 }
 
 export function PageIntro({ eyebrow, title, body, children }: { eyebrow?: string; title: string; body: string; children?: ReactNode }) {
-  return <section className="page-intro"><div className="content-wrap"><p className="eyebrow">{eyebrow ?? "CIVICACT"}</p><h1>{title}</h1><p>{body}</p>{children}</div></section>;
+  return <section className="page-intro"><div className="content-wrap"><div className="page-intro__header">{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1><p className="page-intro__body">{body}</p></div>{children}</div></section>;
 }

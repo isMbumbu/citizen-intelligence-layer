@@ -5,6 +5,8 @@ FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=5 \
     PATH="/opt/venv/bin:$PATH" \
     PYTHONPATH=/app
 
@@ -14,7 +16,7 @@ FROM base AS builder
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --upgrade pip setuptools wheel
+    && /opt/venv/bin/pip install --upgrade "pip==26.2.2"
 
 # Keep the project metadata explicit: the image build fails early when a package
 # dependency or the application package definition is invalid.
