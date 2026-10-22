@@ -2340,6 +2340,88 @@ As a product team, I want production-ready quality checks, so that the platform 
 
 ---
 
+# EPIC 16 — Trust-first presentation
+
+## Story ID
+CIVICACT-FE-052
+
+### Epic
+Trust-first home and project summary
+
+### User Story
+As a citizen, I want the home page and project pages to show only real public information and to summarise how much I can trust a record, so that I can tell facts, citizen input, and review prompts apart at a glance.
+
+### Backend/API Dependency
+- GET /api/v1/projects
+- GET /api/v1/projects/{project_id}
+- GET /api/v1/projects/{project_id}/sources
+- GET /api/v1/projects/{project_id}/verification
+- GET /api/v1/projects/{project_id}/anomalies
+
+### Acceptance Criteria
+- Given the home page loads, When the project list succeeds, Then the information panel shows the live public-project total and no other value styled as a metric.
+- Given the project list fails, When the home page renders, Then the panel shows the total as unavailable instead of loading indefinitely.
+- Given the home page renders, When a citizen looks for budgets, report tracking, or evidence, Then each is offered as a clearly labelled link rather than a statistic.
+- Given a project card has no detail data, When it renders, Then it does not show "Not available" placeholders and instead explains that budget, progress, and sources are on the project record.
+- Given the home hero renders, When a citizen does not know a project name, Then a visible link leads to the filterable project explorer.
+- Given a project detail page loads, When all detail endpoints succeed, Then a trust summary shows record type, verification status, latest reported progress, number of distinct sources, and number of review signals, each linking to its section.
+- Given reported progress or review signals are shown in the summary, When they render, Then they are labelled as not being verification findings or accusations.
+
+### UI Requirements
+- Status badges use consistent colours: green verified or completed, blue in progress, amber pending, on hold or review, red rejected, grey unverified or planned.
+- Light and dark themes remain legible.
+
+### Error States
+- Existing project list and project detail error states apply.
+
+### Data Mapping
+- ProjectPage.total
+- ProjectListItem.subtype, project_type
+- ProjectDetail.progress, verification
+- ClaimEvidence[].sources[].source_id
+- ProjectAnomaly[]
+
+### Definition of Done
+- responsive implementation
+- accessibility
+- loading state
+- empty state
+- error state
+- API integration
+- no invented API behavior
+
+---
+
+## Story ID
+CIVICACT-FE-053
+
+### Epic
+Trust-first presentation
+
+### User Story
+As a citizen, I want to report an issue, comment, report a comment, or share evidence without inventing technical identifiers, and to be able to find my report again afterwards.
+
+### Backend/API Dependency
+- POST /api/v1/projects/{project_id}/reports
+- GET /api/v1/reports/{report_id} and its channels, institutions, responses, and comparison
+- POST /api/v1/projects/{project_id}/comments
+- POST /api/v1/comments/{comment_id}/reports
+- POST /api/v1/projects/{project_id}/evidence
+
+### Acceptance Criteria
+- Given a citizen submits a comment, comment report, or evidence, When the form renders, Then it does not ask for a UUID; the browser supplies an anonymous contributor reference generated once and reused.
+- Given browser storage is unavailable, When a citizen submits, Then a one-off reference is generated instead of blocking the submission.
+- Given the report form renders, When a citizen views the contact field, Then it is labelled optional, explains that it is never shown publicly, and can be left blank.
+- Given a report is submitted, When the API returns 201, Then the confirmation shows the report reference and links to its status page.
+- Given a report has no institution responses, When its status page loads, Then responses and comparison return empty results rather than an error.
+
+### Data Mapping
+- author_id, reporter_id, uploader_id: anonymous browser reference
+- contact_information: optional free text, omitted when blank
+- CitizenReport.id
+
+---
+
 ## Traceability summary
 
 | Story ID | Epic | Screen/Component | API Endpoint | Backend Supported? | Status |
@@ -2347,13 +2429,13 @@ As a product team, I want production-ready quality checks, so that the platform 
 | CIVICACT-FE-001 | EPIC 1 | App shell | Frontend only | No | Planned |
 | CIVICACT-FE-002 | EPIC 1 | Design system | Frontend only | No | Planned |
 | CIVICACT-FE-003 | EPIC 1 | Shared state surfaces | Frontend only | No | Planned |
-| CIVICACT-FE-004 | EPIC 2 | Projects list | GET /api/v1/projects | Yes | Planned |
-| CIVICACT-FE-005 | EPIC 2 | Search and filters | GET /api/v1/projects | Yes | Planned |
-| CIVICACT-FE-006 | EPIC 2 | Pagination | GET /api/v1/projects | Yes | Planned |
-| CIVICACT-FE-007 | EPIC 2 | Taxonomy filters | GET /api/v1/project-categories; GET /api/v1/project-categories/{category_id}/subtypes | Yes | Planned |
-| CIVICACT-FE-008 | EPIC 3 | Project detail | GET /api/v1/projects/{project_id} | Yes | Planned |
-| CIVICACT-FE-009 | EPIC 3 | Timeline and progress | GET /api/v1/projects/{project_id} | Yes | Planned |
-| CIVICACT-FE-010 | EPIC 3 | Sources | GET /api/v1/projects/{project_id}/sources | Yes | Planned |
+| CIVICACT-FE-004 | EPIC 2 | Projects list | GET /api/v1/projects | Yes | Implemented |
+| CIVICACT-FE-005 | EPIC 2 | Search and filters | GET /api/v1/projects | Yes | Implemented |
+| CIVICACT-FE-006 | EPIC 2 | Pagination | GET /api/v1/projects | Yes | Implemented |
+| CIVICACT-FE-007 | EPIC 2 | Taxonomy filters | GET /api/v1/project-categories; GET /api/v1/project-categories/{category_id}/subtypes | Yes | Implemented |
+| CIVICACT-FE-008 | EPIC 3 | Project detail | GET /api/v1/projects/{project_id} | Yes | Implemented |
+| CIVICACT-FE-009 | EPIC 3 | Timeline and progress | GET /api/v1/projects/{project_id} | Yes | Implemented |
+| CIVICACT-FE-010 | EPIC 3 | Sources | GET /api/v1/projects/{project_id}/sources | Yes | Implemented |
 | CIVICACT-FE-011 | EPIC 3 | Evidence integration | GET /api/v1/projects/{project_id}; GET /api/v1/evidence/{evidence_id}; GET /api/v1/evidence/{evidence_id}/download | Yes | Planned |
 | CIVICACT-FE-012 | EPIC 4 | Category taxonomy | GET /api/v1/project-categories | Yes | Planned |
 | CIVICACT-FE-013 | EPIC 4 | Subtype taxonomy | GET /api/v1/project-categories/{category_id}/subtypes | Yes | Planned |
@@ -2395,6 +2477,8 @@ As a product team, I want production-ready quality checks, so that the platform 
 | CIVICACT-FE-049 | EPIC 15 | Accessibility | Frontend only | No | Planned |
 | CIVICACT-FE-050 | EPIC 15 | Responsiveness | Frontend only | No | Planned |
 | CIVICACT-FE-051 | EPIC 15 | Production readiness | All mounted endpoints | Yes | Planned |
+| CIVICACT-FE-052 | EPIC 16 | Trust-first home and project summary | GET /api/v1/projects; project detail, sources, verification, anomalies | Yes | Implemented |
+| CIVICACT-FE-053 | EPIC 16 | Citizen forms without typed identifiers | Reports, comments, comment reports, evidence | Yes | Implemented |
 
 ## Final scope note
 

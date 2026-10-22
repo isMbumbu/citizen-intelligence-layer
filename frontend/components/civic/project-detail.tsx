@@ -21,6 +21,7 @@ import {
   reportComment,
   uploadEvidence,
 } from "@/lib/api";
+import { getContributorId } from "@/lib/contributor";
 import { useApiQuery } from "@/lib/use-api-query";
 import {
   EmptyState,
@@ -85,7 +86,8 @@ export function ProjectDetailPage({ id }: { id: string }) {
 
       <div className="content-wrap detail-grid">
         <div className="detail-main">
-          <section className="detail-section">
+          <TrustSummary project={project} sources={data.sources} verification={data.verification} anomalies={data.anomalies} />
+          <section className="detail-section" id="overview">
             <div className="section-heading">
               <h2>Project overview</h2>
               <VerificationBadge value={data.verification?.status} />
@@ -147,6 +149,39 @@ function Info({ label, value }: { label: string; value: string }) {
   return <div className="info-cell"><small>{label}</small><strong>{value}</strong></div>;
 }
 
+function TrustSummary({ project, sources, verification, anomalies }: { project: ProjectDetail; sources: ClaimEvidence[]; verification: ProjectVerification | null; anomalies: ProjectAnomaly[] }) {
+  const sourceCount = new Set(sources.flatMap((claim) => claim.sources.map((source) => source.source_id))).size;
+  return (
+    <section className="trust-summary" aria-label="Record trust summary">
+      <a className="trust-summary__item" href="#overview">
+        <span className="trust-summary__label">Record type</span>
+        <strong>Public project record</strong>
+        <small>Published project information</small>
+      </a>
+      <a className="trust-summary__item" href="#verification">
+        <span className="trust-summary__label">Verification</span>
+        <VerificationBadge value={verification?.status} />
+        <small>{verification?.verification_date ? `Recorded ${formatDate(verification.verification_date)}` : "No verification date recorded"}</small>
+      </a>
+      <a className="trust-summary__item" href="#overview">
+        <span className="trust-summary__label">Latest reported progress</span>
+        <strong>{project.progress ? `${Number(project.progress.percentage)}%` : "Not reported"}</strong>
+        <small>{project.progress ? `Reported ${formatDate(project.progress.reported_at)}; not a verification finding` : "No progress update in this record"}</small>
+      </a>
+      <a className="trust-summary__item" href="#sources">
+        <span className="trust-summary__label">Sources available</span>
+        <strong>{sourceCount ? `${sourceCount} source${sourceCount === 1 ? "" : "s"}` : "None published"}</strong>
+        <small>{sources.length ? `Supporting ${sources.length} claim${sources.length === 1 ? "" : "s"}` : "No source-linked claims yet"}</small>
+      </a>
+      <a className="trust-summary__item" href="#review-signals">
+        <span className="trust-summary__label">Review signals</span>
+        <strong>{anomalies.length ? `${anomalies.length} to review` : "None"}</strong>
+        <small>Prompts for review, not findings or accusations</small>
+      </a>
+    </section>
+  );
+}
+
 function FinancialSummary({ project }: { project: ProjectDetail }) {
   const entries = Object.entries(project.financial_summary).filter(([, value]) => value);
   return (
@@ -195,7 +230,7 @@ function Timeline({ project }: { project: ProjectDetail }) {
 
 function VerificationPanel({ verification }: { verification: ProjectVerification | null }) {
   return (
-    <section className="detail-section verification-panel">
+    <section className="detail-section verification-panel" id="verification">
       <div className="section-heading">
         <h2>Verification</h2>
         <VerificationBadge value={verification?.status} />
@@ -220,7 +255,7 @@ function VerificationPanel({ verification }: { verification: ProjectVerification
 
 function ReviewSignals({ anomalies }: { anomalies: ProjectAnomaly[] }) {
   return (
-    <section className="detail-section review-signals">
+    <section className="detail-section review-signals" id="review-signals">
       <div className="section-heading">
         <h2>Review signals</h2>
         <span>Not findings or accusations</span>
@@ -252,7 +287,7 @@ function ReviewSignals({ anomalies }: { anomalies: ProjectAnomaly[] }) {
 
 function Sources({ sources }: { sources: ClaimEvidence[] }) {
   return (
-    <section className="detail-section">
+    <section className="detail-section" id="sources">
       <div className="section-heading">
         <h2>Sources &amp; provenance</h2>
         <Icon name="download" size={16} />
@@ -319,13 +354,13 @@ function ReportForm({ projectId }: { projectId: string }) {
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState("");
+  const [submitted, setSubmitted] = useState<string>();
   const [error, setError] = useState<unknown>();
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(undefined);
-    setMessage("");
+    setSubmitted(undefined);
     if (description.trim().length < 10) {
       setError(new ApiError("Description must be at least 10 characters", 422));
       return;
@@ -337,7 +372,7 @@ function ReportForm({ projectId }: { projectId: string }) {
         description: description.trim(),
         contact_information: contact.trim() || undefined,
       });
-      setMessage(`Report submitted. Save report ID ${report.id} to check its status later.`);
+      setSubmitted(report.id);
       setDescription("");
       setContact("");
     } catch (caught) {
@@ -369,11 +404,18 @@ function ReportForm({ projectId }: { projectId: string }) {
           <small>{description.length}/4000</small>
         </label>
         <label>
-          Contact information <span>(optional)</span>
-          <input value={contact} maxLength={255} onChange={(event) => setContact(event.target.value)} />
+          Phone or email <span>(optional)</span>
+          <input value={contact} maxLength={255} placeholder="Leave blank to report anonymously" onChange={(event) => setContact(event.target.value)} />
+          <small>Stored with your report only. It is never shown publicly.</small>
         </label>
         {Boolean(error) && <p className="form-error" role="alert">{humanError(error)}</p>}
-        {message && <p className="form-success" role="status">{message}</p>}
+        {submitted && (
+          <div className="form-success" role="status">
+            <p>Report submitted. Save this reference to check its status later:</p>
+            <code className="report-reference">{submitted}</code>
+            <Link href={`/reports/${submitted}`}>Track this report <Icon name="arrow" size={13} /></Link>
+          </div>
+        )}
         <button className="button button--red button--full" disabled={pending}>
           {pending ? "Submitting…" : "Report an Issue"} <Icon name="arrow" size={15} />
         </button>
@@ -384,7 +426,6 @@ function ReportForm({ projectId }: { projectId: string }) {
 
 function EvidenceUpload({ projectId }: { projectId: string }) {
   const [file, setFile] = useState<File>();
-  const [uploader, setUploader] = useState("");
   const [result, setResult] = useState<Evidence>();
   const [error, setError] = useState<unknown>();
   const [pending, setPending] = useState(false);
@@ -392,8 +433,8 @@ function EvidenceUpload({ projectId }: { projectId: string }) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(undefined);
-    if (!file || !uploader) {
-      setError(new ApiError("A file and contributor ID are required", 422));
+    if (!file) {
+      setError(new ApiError("Choose a file to upload", 422));
       return;
     }
     const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -404,7 +445,7 @@ function EvidenceUpload({ projectId }: { projectId: string }) {
     setPending(true);
     try {
       const form = new FormData();
-      form.append("uploader_id", uploader);
+      form.append("uploader_id", getContributorId());
       form.append("file", file);
       setResult(await uploadEvidence(`/projects/${projectId}/evidence`, form));
     } catch (caught) {
@@ -420,15 +461,12 @@ function EvidenceUpload({ projectId }: { projectId: string }) {
       <h2>Share evidence</h2>
       <p>Accepted: PDF, JPG, PNG, WebP, or GIF. Public evidence is shared by citizens and processed by the service.</p>
       <form onSubmit={submit}>
-        <label>
-          Contributor ID
-          <input value={uploader} onChange={(event) => setUploader(event.target.value)} placeholder="UUID required by the API" required />
-        </label>
         <label className="file-input">
           <Icon name="upload" /> <span>{file?.name ?? "Choose a file"}</span>
           <input type="file" accept=".pdf,image/jpeg,image/png,image/webp,image/gif" onChange={(event) => setFile(event.target.files?.[0])} />
         </label>
         {Boolean(error) && <p className="form-error">{humanError(error)}</p>}
+        <small className="form-hint">Submitted with an anonymous reference saved in this browser.</small>
         {result && <p className="form-success">Evidence received. <Link href={`/evidence/${result.id}`}>View metadata</Link></p>}
         <button className="button button--outline button--full" disabled={pending}>
           {pending ? "Uploading…" : "Upload evidence"}
@@ -440,7 +478,6 @@ function EvidenceUpload({ projectId }: { projectId: string }) {
 
 function Comments({ projectId, initialComments, onChange }: { projectId: string; initialComments: CitizenComment[]; onChange: () => Promise<void> }) {
   const [comments, setComments] = useState(initialComments);
-  const [author, setAuthor] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState<unknown>();
   const [pending, setPending] = useState(false);
@@ -451,14 +488,14 @@ function Comments({ projectId, initialComments, onChange }: { projectId: string;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(undefined);
-    if (!author || content.trim().length < 10) {
-      setError(new ApiError("A contributor ID and a 10 character comment are required", 422));
+    if (content.trim().length < 10) {
+      setError(new ApiError("Comments need at least 10 characters", 422));
       return;
     }
     setPending(true);
     try {
       const newComment = await createComment(projectId, {
-        author_id: author,
+        author_id: getContributorId(),
         content: content.trim(),
         parent_comment_id: replyTo,
       });
@@ -481,13 +518,9 @@ function Comments({ projectId, initialComments, onChange }: { projectId: string;
       <p className="trust-copy">Comments are public civic discussion, not verified project facts.</p>
       <form className="comment-form" onSubmit={submit}>
         <label>
-          Contributor ID
-          <input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="UUID required by the API" required />
-        </label>
-        <label>
           Your comment{replyTo && <small> Replying to a comment</small>}
           <textarea value={content} maxLength={4000} onChange={(event) => setContent(event.target.value)} placeholder="Share relevant, respectful information (at least 10 characters)." required />
-          <small>{content.length}/4000</small>
+          <small>{content.length}/4000 · Posted publicly as &ldquo;Citizen contributor&rdquo;, without your name</small>
         </label>
         {Boolean(error) && <p className="form-error">{humanError(error)}</p>}
         <div>
@@ -513,7 +546,6 @@ function Comments({ projectId, initialComments, onChange }: { projectId: string;
 function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; onReply: () => void; onReport: () => void }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("SPAM");
-  const [reporter, setReporter] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<unknown>();
 
@@ -521,7 +553,7 @@ function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; 
     event.preventDefault();
     setError(undefined);
     try {
-      await reportComment(comment.id, { reporter_id: reporter, reason });
+      await reportComment(comment.id, { reporter_id: getContributorId(), reason });
       setMessage("Comment report submitted for review.");
       onReport();
     } catch (caught) {
@@ -546,8 +578,7 @@ function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; 
       </div>
       {open && (
         <form className="comment-report-form" onSubmit={submit}>
-          <input value={reporter} onChange={(event) => setReporter(event.target.value)} placeholder="Your UUID" required />
-          <select value={reason} onChange={(event) => setReason(event.target.value)}>
+          <select value={reason} aria-label="Reason for reporting this comment" onChange={(event) => setReason(event.target.value)}>
             <option value="SPAM">Spam</option>
             <option value="HARASSMENT">Harassment</option>
             <option value="PERSONAL_INFORMATION">Personal information</option>
