@@ -36,7 +36,7 @@ export function EvidenceFileInput({ file, onChange }: { file: File | undefined; 
  * Upload one evidence file to any of the citizen evidence endpoints. The
  * uploader is the browser's anonymous contributor reference.
  */
-export function EvidenceUploadForm({ path, submitLabel = "Upload evidence", className = "" }: { path: string; submitLabel?: string; className?: string }) {
+export function EvidenceUploadForm({ path, submitLabel = "Upload evidence", className = "", onUploaded }: { path: string; submitLabel?: string; className?: string; onUploaded?: (evidence: Evidence) => void }) {
   const [file, setFile] = useState<File>();
   const [result, setResult] = useState<Evidence>();
   const [error, setError] = useState<unknown>();
@@ -58,8 +58,10 @@ export function EvidenceUploadForm({ path, submitLabel = "Upload evidence", clas
     }
     setPending(true);
     try {
-      setResult(await uploadEvidenceFile(path, file));
+      const uploaded = await uploadEvidenceFile(path, file);
+      setResult(uploaded);
       setFile(undefined);
+      onUploaded?.(uploaded);
     } catch (caught) {
       setError(caught);
     } finally {

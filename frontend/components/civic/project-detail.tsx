@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, createContext, useCallback, useContext, useEffect, useState } from "react";
 import {
   type CitizenComment,
   type ClaimEvidence,
@@ -18,6 +18,7 @@ import {
   fetchComments,
   fetchProject,
   fetchProjectSources,
+  fetchPublicEvidence,
   fetchVerification,
   reportComment,
 } from "@/lib/api";
@@ -38,6 +39,10 @@ import {
 } from "./ui";
 import { ReportRow } from "./reports";
 import { EvidenceFileInput, EvidenceUploadForm, evidenceFileProblem, uploadEvidenceFile } from "./evidence-upload";
+import { EvidenceGallery } from "./evidence-gallery";
+
+// Public evidence for the open project, shared by the gallery, comment cards, and upload forms.
+const EvidenceContext = createContext<{ items: Evidence[]; refresh: () => Promise<void> }>({ items: [], refresh: async () => {} });
 
 type DetailData = {
   project: ProjectDetail;
@@ -59,11 +64,14 @@ export function ProjectDetailPage({ id }: { id: string }) {
     return { project, sources, verification, anomalies, comments };
   }, [id]);
   const { data, error, loading, refresh } = useApiQuery(load);
+  const evidenceQuery = useCallback(() => fetchPublicEvidence("projects", id), [id]);
+  const { data: evidenceItems, refresh: refreshEvidence } = useApiQuery(evidenceQuery);
   if (loading) return <div className="content-wrap detail-loading"><LoadingSkeleton lines={11}/></div>;
   if (error) return <div className="content-wrap page-space"><ErrorState error={error} retry={() => void refresh()}/></div>;
   if (!data) return null;
   const { project } = data;
   return (
+    <EvidenceContext.Provider value={{ items: evidenceItems ?? [], refresh: refreshEvidence }}>
     <div className="project-detail">
       <section className="detail-hero">
         <div className="detail-hero__decor" />
@@ -120,6 +128,7 @@ export function ProjectDetailPage({ id }: { id: string }) {
           <ReviewSignals anomalies={data.anomalies} />
           <Sources sources={data.sources} />
           <ProjectEvidence claims={project.evidence} />
+          <CitizenEvidence />
           <ProjectReports projectId={id} />
           <Comments projectId={id} initialComments={data.comments} onChange={refresh} />
         </div>
@@ -146,6 +155,7 @@ export function ProjectDetailPage({ id }: { id: string }) {
         </aside>
       </div>
     </div>
+    </EvidenceContext.Provider>
   );
 }
 
@@ -326,6 +336,19 @@ function Sources({ sources }: { sources: ClaimEvidence[] }) {
   );
 }
 
+function CitizenEvidence() {
+  const { items } = useContext(EvidenceContext);
+  return (
+    <section className="detail-section" id="citizen-evidence">
+      <div className="section-heading">
+        <h2>Photos and documents from citizens</h2>
+        <span>Shared by citizens, not verified</span>
+      </div>
+      {items.length ? <EvidenceGallery items={items} showSource /> : <EmptyState title="No citizen evidence yet" body="Photos and documents shared on this project, its reports, or its comments will appear here." />}
+    </section>
+  );
+}
+
 function ProjectEvidence({ claims }: { claims: ClaimEvidence[] }) {
   return (
     <section className="detail-section">
@@ -372,6 +395,7 @@ function ProjectReports({ projectId }: { projectId: string }) {
 }
 
 function ReportForm({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const { refresh: refreshEvidence } = useContext(EvidenceContext);
   const [category, setCategory] = useState("QUALITY");
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
@@ -415,6 +439,7 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
         // The report is already saved; a failed upload is reported separately.
         try {
           setAttached(await uploadEvidenceFile(`/projects/${projectId}/reports/${report.id}/evidence`, attachment));
+          void refreshEvidence();
           setAttachment(undefined);
         } catch (caught) {
           setAttachmentError(caught);
@@ -477,12 +502,13 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
 }
 
 function EvidenceUpload({ projectId }: { projectId: string }) {
+  const { refresh } = useContext(EvidenceContext);
   return (
     <section className="aside-card evidence-upload">
       <div className="aside-card__icon"><Icon name="upload" /></div>
       <h2>Share evidence</h2>
       <p>Photos or documents about this project. Evidence is shared by citizens and processed by the service; it is not verification.</p>
-      <EvidenceUploadForm path={`/projects/${projectId}/evidence`} />
+      <EvidenceUploadForm path={`/projects/${projectId}/evidence`} onUploaded={() => void refresh()} />
     </section>
   );
 }
@@ -557,6 +583,8 @@ function Comments({ projectId, initialComments, onChange }: { projectId: string;
 function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; onReply: () => void; onReport: () => void }) {
   const [open, setOpen] = useState(false);
   const [attaching, setAttaching] = useState(false);
+  const { items: projectEvidence, refresh: refreshEvidence } = useContext(EvidenceContext);
+  const commentEvidence = projectEvidence.filter((item) => item.comment_id === comment.id);
   const [reason, setReason] = useState("SPAM");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<unknown>();
@@ -589,7 +617,8 @@ function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; 
         <button className="text-button" onClick={() => setAttaching(!attaching)} aria-expanded={attaching}>Attach evidence</button>
         <button className="text-button" onClick={() => setOpen(!open)}>Report comment</button>
       </div>
-      {attaching && <EvidenceUploadForm path={`/comments/${comment.id}/evidence`} submitLabel="Attach to this comment" className="comment-evidence-form" />}
+      {commentEvidence.length > 0 && <EvidenceGallery items={commentEvidence} compact />}
+      {attaching && <EvidenceUploadForm path={`/comments/${comment.id}/evidence`} submitLabel="Attach to this comment" className="comment-evidence-form" onUploaded={() => void refreshEvidence()} />}
       {open && (
         <form className="comment-report-form" onSubmit={submit}>
           <select value={reason} aria-label="Reason for reporting this comment" onChange={(event) => setReason(event.target.value)}>

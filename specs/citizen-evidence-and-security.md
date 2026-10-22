@@ -418,6 +418,11 @@ from client-supplied names or user-controlled values.
 Protect downloads with controlled access, especially for private or moderated
 uploads. Prefer signed, short-lived URLs over permanent public links.
 
+Current behaviour (EVD-004): validated uploads are stored as `PUBLIC` once
+image metadata has been stripped, so anyone can view them; hidden, removed,
+deleted, and private evidence stays unavailable to the public. Images are served
+inline and documents as attachments.
+
 ### 5.4 Validation principles
 
 - the filename is not trusted
@@ -442,7 +447,8 @@ Images may contain personal data such as:
 - other incidental identifying data
 
 The system should strip unnecessary EXIF metadata before public display where
-possible.
+possible. JPEG, PNG, and WebP uploads are re-encoded without EXIF or text
+metadata, with orientation applied to the pixels, before they are stored.
 
 ### 6.2 Trust boundaries
 

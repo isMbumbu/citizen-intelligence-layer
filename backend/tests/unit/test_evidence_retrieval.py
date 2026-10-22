@@ -78,10 +78,10 @@ async def _download(
 
 
 @pytest.mark.parametrize(
-    ("mime_type", "filename", "content"),
+    ("mime_type", "filename", "content", "disposition"),
     [
-        ("application/pdf", "report.pdf", b"%PDF-1.4\n%%EOF"),
-        ("image/png", "site-photo.png", b"png-bytes"),
+        ("application/pdf", "report.pdf", b"%PDF-1.4\n%%EOF", "attachment"),
+        ("image/png", "site-photo.png", b"png-bytes", "inline"),
     ],
 )
 async def test_public_retrieval_preserves_type_and_safe_filename(
@@ -89,6 +89,7 @@ async def test_public_retrieval_preserves_type_and_safe_filename(
     mime_type: str,
     filename: str,
     content: bytes,
+    disposition: str,
 ) -> None:
     storage = FakeStorage(content)
     evidence = _evidence(mime_type=mime_type, original_filename=filename)
@@ -105,7 +106,7 @@ async def test_public_retrieval_preserves_type_and_safe_filename(
     assert download.filename == filename  # type: ignore[attr-defined]
     assert response.media_type == mime_type
     assert response.headers["content-disposition"] == (
-        f'attachment; filename="{filename}"'
+        f'{disposition}; filename="{filename}"'
     )
     assert "/" not in response.headers["content-disposition"]
     assert "\\" not in response.headers["content-disposition"]

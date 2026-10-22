@@ -128,6 +128,34 @@ async def create_report_evidence(
     )
 
 
+@router.get("/projects/{project_id}/evidence", response_model=list[EvidenceResponse])
+async def list_project_evidence(
+    project_id: UUID,
+    session: SessionDep,
+) -> list[EvidenceResponse]:
+    """List public citizen evidence for a project, including report and comment
+    attachments, newest first."""
+    return await service.list_public_evidence(session, project_id=project_id)
+
+
+@router.get("/reports/{report_id}/evidence", response_model=list[EvidenceResponse])
+async def list_report_evidence(
+    report_id: UUID,
+    session: SessionDep,
+) -> list[EvidenceResponse]:
+    """List public citizen evidence attached to a report, newest first."""
+    return await service.list_public_evidence(session, report_id=report_id)
+
+
+@router.get("/comments/{comment_id}/evidence", response_model=list[EvidenceResponse])
+async def list_comment_evidence(
+    comment_id: UUID,
+    session: SessionDep,
+) -> list[EvidenceResponse]:
+    """List public citizen evidence attached to a comment, newest first."""
+    return await service.list_public_evidence(session, comment_id=comment_id)
+
+
 @router.get("/evidence/{evidence_id}", response_model=EvidenceResponse)
 async def get_evidence(
     evidence_id: UUID,
@@ -150,11 +178,15 @@ async def download_evidence(
         evidence_id,
         actor=actor,
     )
+    # Images (re-encoded without metadata at upload) display in the browser;
+    # PDFs and anything else still download.
+    disposition = "inline" if download.mime_type.startswith("image/") else "attachment"
     return Response(
         content=download.content,
         media_type=download.mime_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{download.filename}"',
+            "Content-Disposition": f'{disposition}; filename="{download.filename}"',
+            "Cache-Control": "public, max-age=300",
         },
     )
 
