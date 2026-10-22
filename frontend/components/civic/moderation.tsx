@@ -59,7 +59,7 @@ export function ModerationPage() {
         <div className="content-wrap">
           <p className="eyebrow">MODERATION</p>
           <h1>Protected moderation workspace</h1>
-          <p>Moderation is protected by the backend’s trusted-actor boundary. CIVICACT does not provide a sign-in or token flow.</p>
+          <p>Moderation is restricted to authorized reviewers. CIVICACT does not offer a public login or token flow.</p>
         </div>
       </section>
       <div className="content-wrap moderation-grid">

@@ -16,8 +16,8 @@ const statuses: ProjectStatus[] = ["PLANNED", "IN_PROGRESS", "COMPLETED", "ON_HO
 const heroStatements = [
   "Accountable communities.",
   "Transparent public spending.",
-  "Community-led progress.",
-  "Evidence-based decisions.",
+  "Communities lead progress.",
+  "Decisions guided by evidence.",
 ];
 
 function filtersFromParams(params: URLSearchParams): FilterState {

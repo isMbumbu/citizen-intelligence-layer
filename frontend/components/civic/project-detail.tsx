@@ -281,7 +281,7 @@ function Sources({ sources }: { sources: ClaimEvidence[] }) {
           ))}
         </div>
       ) : (
-        <EmptyState title="No sources published" body="No claim-and-source chain is currently available for this project." />
+        <EmptyState title="No sources published" body="No link between a claim and its source is currently available for this project." />
       )}
     </section>
   );
@@ -337,7 +337,7 @@ function ReportForm({ projectId }: { projectId: string }) {
         description: description.trim(),
         contact_information: contact.trim() || undefined,
       });
-      setMessage(`Report submitted. Save report ID ${report.id} to track its read-only status.`);
+      setMessage(`Report submitted. Save report ID ${report.id} to check its status later.`);
       setDescription("");
       setContact("");
     } catch (caught) {
@@ -418,7 +418,7 @@ function EvidenceUpload({ projectId }: { projectId: string }) {
     <section className="aside-card evidence-upload">
       <div className="aside-card__icon"><Icon name="upload" /></div>
       <h2>Share evidence</h2>
-      <p>Accepted: PDF, JPG, PNG, WebP, or GIF. Public evidence is citizen-submitted and processed by the service.</p>
+      <p>Accepted: PDF, JPG, PNG, WebP, or GIF. Public evidence is shared by citizens and processed by the service.</p>
       <form onSubmit={submit}>
         <label>
           Contributor ID
@@ -476,7 +476,7 @@ function Comments({ projectId, initialComments, onChange }: { projectId: string;
     <section className="detail-section comments-section">
       <div className="section-heading">
         <h2>Community discussion</h2>
-        <span>Citizen-submitted information</span>
+        <span>Information shared by citizens</span>
       </div>
       <p className="trust-copy">Comments are public civic discussion, not verified project facts.</p>
       <form className="comment-form" onSubmit={submit}>

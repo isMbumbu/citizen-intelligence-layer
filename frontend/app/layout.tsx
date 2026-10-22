@@ -9,7 +9,7 @@ const jetBrains = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["lati
 export const metadata: Metadata = {
   title: "Citizen Intelligence Layer",
   description:
-    "Citizen-first intelligence for public spending, projects, evidence, and civic action.",
+    "Information for citizens about public spending, projects, evidence, and civic action.",
   icons: { icon: "/kenya-brush-flag.png", apple: "/kenya-brush-flag.png" },
   manifest: "/site.webmanifest",
 };
