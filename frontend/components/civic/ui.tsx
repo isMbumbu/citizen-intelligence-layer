@@ -13,7 +13,7 @@ export function Brand({ inverse = false }: { inverse?: boolean }) {
   );
 }
 
-export function Icon({ name, size = 18, className = "" }: { name: "search" | "filter" | "pin" | "folder" | "home" | "projects" | "report" | "comment" | "evidence" | "moderation" | "arrow" | "menu" | "close" | "check" | "upload" | "download" | "shield" | "clock" | "megaphone" | "alert-triangle"; size?: number; className?: string }) {
+export function Icon({ name, size = 18, className = "" }: { name: "search" | "filter" | "pin" | "folder" | "home" | "projects" | "report" | "comment" | "evidence" | "moderation" | "arrow" | "menu" | "close" | "check" | "upload" | "download" | "shield" | "clock" | "megaphone" | "alert-triangle" | "sun" | "moon" | "pause" | "play"; size?: number; className?: string }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className, "aria-hidden": true };
   const paths: Record<string, ReactNode> = {
     search: <><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></>,
@@ -36,6 +36,10 @@ export function Icon({ name, size = 18, className = "" }: { name: "search" | "fi
     clock: <><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></>,
     megaphone: <><path d="m4 13 11-5v8L4 11zM15 10h3.5a2 2 0 0 1 0 4H15M6.5 14l1.3 5H11l-1.2-5"/></>,
     "alert-triangle": <><path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 4h.01"/></>,
+    sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
+    moon: <path d="M20.7 15.3A8.7 8.7 0 0 1 8.7 3.3 9 9 0 1 0 20.7 15.3Z"/>,
+    pause: <><path d="M8 5v14M16 5v14"/></>,
+    play: <path d="m8 5 12 7-12 7z"/>,
   };
   return <svg {...common}>{paths[name]}</svg>;
 }

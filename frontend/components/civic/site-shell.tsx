@@ -34,6 +34,47 @@ export function StatusIndicator({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = window.localStorage.getItem("civicact-theme");
+    } catch {
+      // Keep using the system preference when storage is unavailable.
+    }
+    const selected = saved === "dark" || saved === "light"
+      ? saved
+      : window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = selected;
+    setTheme(selected);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try {
+      window.localStorage.setItem("civicact-theme", next);
+    } catch {
+      // Apply the selected theme for this session even if storage is unavailable.
+    }
+    setTheme(next);
+  };
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+      title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+    >
+      <Icon name={theme === "dark" ? "sun" : "moon"} size={17} />
+    </button>
+  );
+}
+
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -49,6 +90,7 @@ export function Header() {
         </nav>
         <div className="header-actions">
           <Link href="/projects" className="header-search" aria-label="Search public projects"><Icon name="search" size={19}/></Link>
+          <ThemeToggle />
           <span className="header-divider" aria-hidden="true"/>
           <StatusIndicator />
           <button type="button" className="menu-button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="mobile-nav" aria-label={open ? "Close menu" : "Open menu"}>

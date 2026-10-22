@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { type ProjectDetail, type ProjectFilters, type ProjectListItem, type ProjectStatus, type TaxonomyCategory, fetchCategories, fetchProjects } from "@/lib/api";
 import { useApiQuery, useDebouncedValue } from "@/lib/use-api-query";
 import { EmptyState, ErrorState, Icon, LoadingSkeleton, ProgressBar, StatusBadge, formatMoney } from "./ui";
+import { HeroCarousel } from "./hero-carousel";
 
 type FilterState = Omit<ProjectFilters, "page" | "page_size">;
 const blankFilters: FilterState = { search: "", county: "", ward: "", project_type: "", category_id: "", subtype_id: "", status: undefined };
@@ -158,7 +159,7 @@ export function CivicHome() {
 
   return <div className="home-page">
     <section className="hero-section">
-      <div className="hero-section__backdrop" aria-hidden="true"><Image src="/civic-infrastructure-hero.jpg" alt="" className="hero-section__image" fill priority sizes="100vw"/><div className="hero-section__overlay"/></div>
+      <HeroCarousel />
       <div className="content-wrap hero-section__content">
         <div className="hero-section__text">
           <div className="hero-kicker"><span>REPUBLIC OF KENYA</span><span className="hero-kicker__flag" aria-hidden="true"><i className="flag-green"/><i className="flag-red"/><i className="flag-white"/></span><span>CITIZEN INTELLIGENCE LAYER</span></div>
