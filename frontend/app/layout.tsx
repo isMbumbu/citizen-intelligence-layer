@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin"] });
-const jetBrains = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"] });
+// Fonts are bundled (SIL Open Font License, see app/fonts) so builds and
+// deployments work without reaching Google Fonts.
+const jakarta = localFont({ src: "./fonts/PlusJakartaSans-Variable.woff2", variable: "--font-jakarta", weight: "200 800", display: "swap" });
+const jetBrains = localFont({ src: "./fonts/JetBrainsMono-Variable.woff2", variable: "--font-jetbrains", weight: "100 800", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Citizen Intelligence Layer",
