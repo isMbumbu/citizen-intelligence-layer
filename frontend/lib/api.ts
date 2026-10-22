@@ -571,6 +571,18 @@ export function uploadEvidence(
   });
 }
 
+export type EvidenceTarget = "projects" | "reports" | "comments";
+
+/** Public evidence for one project (including report/comment attachments), report, or comment. */
+export function fetchPublicEvidence(target: EvidenceTarget, id: string): Promise<Evidence[]> {
+  return apiFetch<Evidence[]>(`/${target}/${id}/evidence`);
+}
+
+/** Browser URL for a public evidence file; images are served inline. */
+export function evidenceFileUrl(evidenceId: string): string {
+  return `${clientBaseUrl}/evidence/${evidenceId}/download`;
+}
+
 export function fetchEvidence(evidenceId: string): Promise<Evidence> {
   return apiFetch<Evidence>(`/evidence/${evidenceId}`);
 }
