@@ -103,40 +103,17 @@ textarea:focus-visible {
 }
 
 .brand-mark {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: #09131f;
-  overflow: hidden;
+  width: 36px;
+  height: 36px;
   display: block;
+  flex: 0 0 36px;
+  filter: drop-shadow(0 1px 1px rgb(9 19 31 / 14%));
 }
 
-.brand-mark span {
-  position: absolute;
+.brand-mark svg {
+  width: 100%;
+  height: 100%;
   display: block;
-  height: 6px;
-  width: 44px;
-  transform: rotate(-42deg);
-  border-radius: 3px;
-}
-
-.brand-mark__white {
-  background: #ffffff;
-  left: -6px;
-  top: 6px;
-}
-
-.brand-mark__red {
-  background: #e11a2b;
-  left: -4px;
-  top: 14px;
-}
-
-.brand-mark__green {
-  background: #058154;
-  left: -6px;
-  top: 22px;
 }
 
 .brand-copy {
