@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlmodel import col, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import logger
@@ -12,6 +12,13 @@ from app.models.evidence import (
     EvidenceDerivedArtifact,
     EvidenceProcessingEvent,
     EvidenceRecord,
+)
+from app.models.vertical_slice import (
+    County,
+    Project,
+    ProjectCategory,
+    SubCounty,
+    Ward,
 )
 
 
@@ -60,15 +67,9 @@ async def list_for_project(
     return list(result.all())
 
 
-async def list_public(
-    session: AsyncSession,
-    *,
-    project_id: UUID | None,
-    report_id: UUID | None,
-    comment_id: UUID | None,
-) -> list[EvidenceRecord]:
-    """Return public, non-moderated-away evidence for one target, newest first."""
-    conditions: list[Any] = [
+def _public_conditions() -> list[Any]:
+    """Conditions shared by every public evidence query."""
+    return [
         col(EvidenceRecord.is_deleted).is_(False),
         EvidenceRecord.visibility == EvidenceVisibility.PUBLIC.value,
         col(EvidenceRecord.moderation_state).not_in(
@@ -78,6 +79,65 @@ async def list_public(
             ]
         ),
     ]
+
+
+async def browse_public(
+    session: AsyncSession,
+    *,
+    project_id: UUID | None,
+    category_id: UUID | None,
+    county: str | None,
+    kind: str | None,
+    offset: int,
+    limit: int,
+) -> tuple[list[tuple[EvidenceRecord, str, str, str]], int]:
+    """Return a newest-first page of public evidence with project context."""
+    conditions = _public_conditions()
+    if project_id is not None:
+        conditions.append(EvidenceRecord.project_id == project_id)
+    if category_id is not None:
+        conditions.append(Project.category_id == category_id)
+    if county is not None:
+        conditions.append(func.lower(County.name) == county.casefold())
+    if kind == "image":
+        conditions.append(col(EvidenceRecord.mime_type).startswith("image/"))
+    elif kind == "document":
+        conditions.append(col(EvidenceRecord.mime_type).not_like("image/%"))
+
+    def joined(statement: Any) -> Any:
+        return (
+            statement.select_from(EvidenceRecord)
+            .join(Project, col(EvidenceRecord.project_id) == col(Project.id))
+            .join(ProjectCategory, col(Project.category_id) == col(ProjectCategory.id))
+            .join(Ward, col(Project.ward_id) == col(Ward.id))
+            .join(SubCounty, col(Ward.sub_county_id) == col(SubCounty.id))
+            .join(County, col(SubCounty.county_id) == col(County.id))
+            .where(*conditions)
+        )
+
+    page = await session.exec(
+        joined(select(EvidenceRecord, Project.name, County.name, ProjectCategory.name))
+        .order_by(col(EvidenceRecord.uploaded_at).desc(), col(EvidenceRecord.id))
+        .offset(offset)
+        .limit(limit)
+    )
+    total = await session.exec(joined(select(func.count())))
+    rows = [
+        (record, project, county_name, category)
+        for record, project, county_name, category in page.all()
+    ]
+    return rows, total.one()
+
+
+async def list_public(
+    session: AsyncSession,
+    *,
+    project_id: UUID | None,
+    report_id: UUID | None,
+    comment_id: UUID | None,
+) -> list[EvidenceRecord]:
+    """Return public, non-moderated-away evidence for one target, newest first."""
+    conditions = _public_conditions()
     if project_id is not None:
         conditions.append(EvidenceRecord.project_id == project_id)
     if report_id is not None:

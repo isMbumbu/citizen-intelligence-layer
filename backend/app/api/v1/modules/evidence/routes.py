@@ -1,6 +1,6 @@
 """Thin HTTP routes for evidence metadata."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import (
@@ -8,6 +8,7 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Query,
     Request,
     Response,
     UploadFile,
@@ -19,6 +20,7 @@ from app.api.v1.modules.evidence import service
 from app.api.v1.modules.evidence.schemas import (
     EvidenceProcessingResponse,
     EvidenceResponse,
+    PublicEvidencePage,
 )
 from app.core.database import get_session
 from app.core.rate_limit import RateLimitOperation, enforce_rate_limit
@@ -154,6 +156,32 @@ async def list_comment_evidence(
 ) -> list[EvidenceResponse]:
     """List public citizen evidence attached to a comment, newest first."""
     return await service.list_public_evidence(session, comment_id=comment_id)
+
+
+@router.get("/evidence", response_model=PublicEvidencePage)
+async def browse_evidence(
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=60)] = 24,
+    project_id: UUID | None = None,
+    category_id: UUID | None = None,
+    county: Annotated[str | None, Query(min_length=1, max_length=120)] = None,
+    kind: Literal["image", "document"] | None = None,
+) -> PublicEvidencePage:
+    """Browse public citizen evidence with project context, newest first.
+
+    Cards never include uploader identifiers, checksums, filenames, or storage
+    details.
+    """
+    return await service.browse_public_evidence(
+        session,
+        project_id=project_id,
+        category_id=category_id,
+        county=county.strip() if county is not None else None,
+        kind=kind,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/evidence/{evidence_id}", response_model=EvidenceResponse)

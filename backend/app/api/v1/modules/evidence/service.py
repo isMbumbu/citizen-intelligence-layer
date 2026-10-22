@@ -6,6 +6,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, UploadFile, status
@@ -21,6 +22,8 @@ from app.api.v1.modules.evidence.schemas import (
     EvidenceProcessingEventResponse,
     EvidenceProcessingResponse,
     EvidenceResponse,
+    PublicEvidenceItem,
+    PublicEvidencePage,
 )
 from app.api.v1.modules.projects import repository as projects_repository
 from app.core.config import settings
@@ -258,6 +261,63 @@ async def get_evidence(
         evidence.processing_state,
     )
     return _response(evidence)
+
+
+async def browse_public_evidence(
+    session: AsyncSession,
+    *,
+    project_id: UUID | None,
+    category_id: UUID | None,
+    county: str | None,
+    kind: Literal["image", "document"] | None,
+    page: int,
+    page_size: int,
+) -> PublicEvidencePage:
+    """Return browse-safe public evidence cards with their project context."""
+    try:
+        rows, total = await repository.browse_public(
+            session,
+            project_id=project_id,
+            category_id=category_id,
+            county=county,
+            kind=kind,
+            offset=(page - 1) * page_size,
+            limit=page_size,
+        )
+    except Exception as error:
+        logger.exception("Unable to browse public evidence")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve evidence.",
+        ) from error
+    items = [
+        PublicEvidenceItem(
+            id=record.id,
+            project_id=record.project_id,
+            project_name=project_name,
+            county=county_name,
+            category=category_name,
+            attached_to=(
+                "report"
+                if record.report_id
+                else "comment"
+                if record.comment_id
+                else "project"
+            ),
+            kind="image" if record.mime_type.startswith("image/") else "document",
+            mime_type=record.mime_type,
+            review_status=(
+                "UNDER_REVIEW"
+                if record.moderation_state == EvidenceModerationState.FLAGGED.value
+                else "NOT_YET_REVIEWED"
+            ),
+            processing_state=EvidenceProcessingState(record.processing_state),
+            uploaded_at=record.uploaded_at,
+        )
+        for record, project_name, county_name, category_name in rows
+        if record.project_id is not None and _is_publicly_retrievable(record)
+    ]
+    return PublicEvidencePage(items=items, page=page, page_size=page_size, total=total)
 
 
 async def list_public_evidence(

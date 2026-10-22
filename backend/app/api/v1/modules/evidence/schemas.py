@@ -1,6 +1,7 @@
 """API contracts for citizen evidence metadata."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -22,6 +23,30 @@ class EvidenceCreateRequest(BaseModel):
     file_size_bytes: int = Field(ge=0)
     checksum_sha256: str = Field(min_length=1, max_length=128)
     comment_id: UUID | None = None
+
+
+class PublicEvidenceItem(BaseModel):
+    """Browse-safe evidence card: no uploader, checksum, filename, or storage data."""
+
+    id: UUID
+    project_id: UUID
+    project_name: str
+    county: str
+    category: str
+    attached_to: Literal["project", "report", "comment"]
+    kind: Literal["image", "document"]
+    mime_type: str
+    review_status: Literal["NOT_YET_REVIEWED", "UNDER_REVIEW"]
+    processing_state: EvidenceProcessingState
+    uploaded_at: datetime
+    trust_label: str = "CITIZEN_SUBMITTED_EVIDENCE"
+
+
+class PublicEvidencePage(BaseModel):
+    items: list[PublicEvidenceItem]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=60)
+    total: int = Field(ge=0)
 
 
 class EvidenceResponse(BaseModel):
