@@ -428,13 +428,8 @@ textarea:focus-visible {
 }
 
 .hero-section__text {
-  background: rgba(10, 19, 32, 0.76);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 16px;
-  padding: 34px 38px;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  background: transparent;
+  padding: 34px 0;
 }
 
 .hero-kicker {
@@ -543,14 +538,14 @@ textarea:focus-visible {
 }
 
 .hero-metric-card {
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: #09131f;
   border-radius: 14px;
   padding: 24px;
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.65);
 }
 
 .hero-metric-card__header {
