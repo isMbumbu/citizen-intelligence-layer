@@ -556,8 +556,8 @@ textarea:focus-visible {
 }
 
 .hero-heading__changing {
-  display: inline-block;
-  min-width: 13ch;
+  display: block;
+  min-height: 2.2em;
   animation: hero-word-change 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
   transform-origin: left center;
 }
