@@ -7,23 +7,7 @@ import { ApiError } from "@/lib/api";
 export function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
     <Link href="/" className={`brand ${inverse ? "brand--inverse" : ""}`} aria-label="CIVICACT home">
-      <span className="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 40 40" role="presentation" focusable="false">
-          <defs><clipPath id="kenya-flag-clip"><rect x="1" y="1" width="38" height="38" rx="8"/></clipPath></defs>
-          <g clipPath="url(#kenya-flag-clip)">
-            <rect x="1" y="1" width="38" height="12" fill="#000"/>
-            <rect x="1" y="12" width="38" height="2" fill="#fff"/>
-            <rect x="1" y="14" width="38" height="12" fill="#BB0000"/>
-            <rect x="1" y="26" width="38" height="2" fill="#fff"/>
-            <rect x="1" y="28" width="38" height="11" fill="#006600"/>
-            <path d="M20 8 27 20 20 32 13 20Z" fill="#BB0000" stroke="#fff" strokeWidth="2.2"/>
-            <path d="m15.3 10.4 9.4 19.2M24.7 10.4l-9.4 19.2" stroke="#fff" strokeWidth="1.9" strokeLinecap="round"/>
-            <path d="M20 9.4 26 20 20 30.6 14 20Z" fill="#BB0000" stroke="#000" strokeWidth="1"/>
-            <path d="m16.5 12.1 7 15.8m0-15.8-7 15.8" stroke="#000" strokeWidth=".85" strokeLinecap="round"/>
-          </g>
-          <rect x="1" y="1" width="38" height="38" rx="8" fill="none" stroke="rgba(9,19,31,.18)"/>
-        </svg>
-      </span>
+      <span className="brand-mark" aria-hidden="true" />
       <span className="brand-copy"><strong>CIVIC</strong><strong className="brand-act">ACT</strong><small>Kenya Public Intelligence</small></span>
     </Link>
   );
