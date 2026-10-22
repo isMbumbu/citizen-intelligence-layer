@@ -121,21 +121,33 @@ textarea:focus-visible {
 }
 
 .brand-mark {
-  width: 68px;
-  height: 23px;
+  width: 96px;
+  height: 32px;
   display: block;
-  flex: 0 0 68px;
+  flex: 0 0 96px;
   background-color: transparent;
   background-image: url("/kenya-brush-flag.png");
   background-position: center;
   background-size: 100% 100%;
-  filter: drop-shadow(0 1px 1px rgb(9 19 31 / 14%));
+  filter: brightness(1.08) contrast(1.05) drop-shadow(0 0 1px rgb(255 255 255 / 90%)) drop-shadow(0 1px 2px rgb(9 19 31 / 35%));
 }
 
 .brand-copy {
   display: flex;
   flex-direction: column;
   line-height: 1.1;
+}
+
+.brand-copy strong {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.brand-copy small {
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 2px;
 }
 
 .brand-title {
@@ -3172,9 +3184,9 @@ html[data-theme="dark"] .status-badge--rejected {
   }
 
   .brand-mark {
-    width: 56px;
-    height: 19px;
-    flex-basis: 56px;
+    width: 72px;
+    height: 24px;
+    flex-basis: 72px;
   }
 }
 
@@ -3192,10 +3204,10 @@ html[data-theme="dark"] .status-badge--rejected {
     display: none;
   }
   .brand-copy strong {
-    font-size: 16px;
+    font-size: 17px;
   }
   .brand-copy small {
-    font-size: 8px;
+    font-size: 9px;
   }
   .hero-section {
     min-height: 0;
