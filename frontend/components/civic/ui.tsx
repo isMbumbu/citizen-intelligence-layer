@@ -7,13 +7,13 @@ import { ApiError } from "@/lib/api";
 export function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
     <Link href="/" className={`brand ${inverse ? "brand--inverse" : ""}`} aria-label="CIVICACT home">
-      <span className="brand-mark" aria-hidden="true"><span className="brand-mark__white"/><span className="brand-mark__red"/><span className="brand-mark__green"/></span>
+      <span className="brand-mark" aria-hidden="true" />
       <span className="brand-copy"><strong>CIVIC</strong><strong className="brand-act">ACT</strong><small>Kenya Public Intelligence</small></span>
     </Link>
   );
 }
 
-export function Icon({ name, size = 18, className = "" }: { name: "search" | "filter" | "pin" | "folder" | "home" | "projects" | "report" | "comment" | "evidence" | "moderation" | "arrow" | "menu" | "close" | "check" | "upload" | "download" | "shield" | "clock" | "megaphone" | "alert-triangle" | "sun" | "moon" | "pause" | "play"; size?: number; className?: string }) {
+export function Icon({ name, size = 18, className = "" }: { name: "search" | "filter" | "pin" | "folder" | "home" | "projects" | "report" | "comment" | "evidence" | "moderation" | "arrow" | "menu" | "close" | "check" | "upload" | "download" | "shield" | "clock" | "megaphone" | "alert-triangle" | "sun" | "moon"; size?: number; className?: string }) {
   const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className, "aria-hidden": true };
   const paths: Record<string, ReactNode> = {
     search: <><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></>,
@@ -38,8 +38,6 @@ export function Icon({ name, size = 18, className = "" }: { name: "search" | "fi
     "alert-triangle": <><path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 4h.01"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></>,
     moon: <path d="M20.7 15.3A8.7 8.7 0 0 1 8.7 3.3 9 9 0 1 0 20.7 15.3Z"/>,
-    pause: <><path d="M8 5v14M16 5v14"/></>,
-    play: <path d="m8 5 12 7-12 7z"/>,
   };
   return <svg {...common}>{paths[name]}</svg>;
 }
@@ -55,11 +53,11 @@ export function EmptyState({ title = "Nothing to show yet", body, action }: { ti
 export function humanError(error: unknown): string {
   if (!(error instanceof ApiError)) return "We could not load this public information. Please try again.";
   if (error.status === 0) return "The public service is unavailable right now. Please try again shortly.";
-  if (error.status === 401 || error.status === 403) return "This item is restricted by the current backend permission boundary. There is no public sign-in flow available.";
+  if (error.status === 401 || error.status === 403) return "You do not have permission to view this item. Public access is not available.";
   if (error.status === 404) return "This public record could not be found.";
   if (error.status === 409) return "That action conflicts with the record’s current state. Refresh and try again.";
   if (error.status === 422) return "Please check the information entered and try again.";
-  if (error.status === 429) return `This action is temporarily rate-limited${error.retryAfter ? `. Try again in ${error.retryAfter} seconds` : ""}.`;
+  if (error.status === 429) return `Too many requests. Please try again${error.retryAfter ? ` in ${error.retryAfter} seconds` : ""}.`;
   if (error.status === 503) return "The public service is temporarily unavailable. Please try again later.";
   return "We could not complete that request. Please try again.";
 }

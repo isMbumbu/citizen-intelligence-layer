@@ -7,8 +7,7 @@ export default function Footer() {
           Citizen Intelligence Layer
         </p>
         <p className="opacity-60">
-          Citizen-first intelligence for public spending, projects, evidence,
-          and civic action.
+          Public spending, projects, evidence, and civic action, shaped around citizens.
         </p>
       </div>
     </footer>

@@ -83,6 +83,7 @@ export function Header() {
 
   return (
     <header className="site-header">
+      <div className="kenya-flag-banner" role="img" aria-label="Kenyan flag in a brush painted style" />
       <div className="site-header__inner">
         <Brand />
         <nav className="primary-nav" aria-label="Primary navigation">

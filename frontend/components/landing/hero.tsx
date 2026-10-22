@@ -3,7 +3,7 @@ export default function Hero({ apiStatus }: { apiStatus: string }) {
     <section id="mission" className="border-b border-black/10 dark:border-white/10">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-8 px-6 py-24 md:py-32">
         <p className="text-sm font-medium uppercase tracking-widest text-sky-600 dark:text-sky-400">
-          Citizen-first intelligence
+          Intelligence that puts citizens first
         </p>
         <h1 className="max-w-3xl text-4xl font-semibold leading-tight tracking-tight md:text-6xl">
           Public money and projects, made intelligible, verifiable, and

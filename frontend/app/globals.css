@@ -83,6 +83,24 @@ textarea:focus-visible {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
+.kenya-flag-banner {
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(
+    90deg,
+    #0b0f0d 0%,
+    #0b0f0d 32%,
+    #fff 32%,
+    #fff 34%,
+    #c8102e 34%,
+    #c8102e 66%,
+    #fff 66%,
+    #fff 68%,
+    #007a3d 68%,
+    #007a3d 100%
+  );
+}
+
 .site-header__inner {
   height: 68px;
   width: min(1340px, calc(100% - 48px));
@@ -103,40 +121,15 @@ textarea:focus-visible {
 }
 
 .brand-mark {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: #09131f;
-  overflow: hidden;
+  width: 68px;
+  height: 23px;
   display: block;
-}
-
-.brand-mark span {
-  position: absolute;
-  display: block;
-  height: 6px;
-  width: 44px;
-  transform: rotate(-42deg);
-  border-radius: 3px;
-}
-
-.brand-mark__white {
-  background: #ffffff;
-  left: -6px;
-  top: 6px;
-}
-
-.brand-mark__red {
-  background: #e11a2b;
-  left: -4px;
-  top: 14px;
-}
-
-.brand-mark__green {
-  background: #058154;
-  left: -6px;
-  top: 22px;
+  flex: 0 0 68px;
+  background-color: transparent;
+  background-image: url("/kenya-brush-flag.png");
+  background-position: center;
+  background-size: 100% 100%;
+  filter: drop-shadow(0 1px 1px rgb(9 19 31 / 14%));
 }
 
 .brand-copy {
@@ -485,61 +478,6 @@ textarea:focus-visible {
 .hero-carousel__slide:nth-child(3) .hero-section__image { object-position: center 48%; }
 .hero-carousel__slide:nth-child(4) .hero-section__image { object-position: center 48%; }
 
-.hero-carousel__controls {
-  position: absolute;
-  z-index: 3;
-  right: max(24px, calc((100vw - 1340px) / 2));
-  bottom: 22px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-  background: rgba(8, 17, 29, 0.55);
-  pointer-events: auto;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.hero-carousel__dot,
-.hero-carousel__pause {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 0;
-  color: #fff;
-  background: transparent;
-}
-
-.hero-carousel__dot {
-  width: 9px;
-  height: 9px;
-  padding: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.52);
-  transition: width 0.2s ease, border-radius 0.2s ease, background-color 0.2s ease;
-}
-
-.hero-carousel__dot.is-active {
-  width: 23px;
-  border-radius: 99px;
-  background: #fff;
-}
-
-.hero-carousel__pause {
-  width: 20px;
-  height: 20px;
-  margin-left: 2px;
-  padding: 0;
-}
-
-.hero-carousel__dot:focus-visible,
-.hero-carousel__pause:focus-visible {
-  outline-color: #fff;
-  outline-offset: 3px;
-}
-
 .hero-section__image {
   width: 100%;
   height: 100%;
@@ -564,14 +502,16 @@ textarea:focus-visible {
   z-index: 10;
   display: grid;
   grid-template-columns: 1.15fr 360px;
-  gap: 36px;
+  gap: clamp(32px, 5vw, 76px);
   align-items: center;
-  width: 100%;
+  width: min(1420px, calc(100% - clamp(48px, 10vw, 160px)));
+  margin-inline: auto;
 }
 
 .hero-section__text {
   background: transparent;
   padding: 34px 0;
+  animation: hero-content-enter 700ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
 }
 
 .hero-kicker {
@@ -615,6 +555,18 @@ textarea:focus-visible {
   color: #f87171;
 }
 
+.hero-heading__changing {
+  display: block;
+  min-height: 2.2em;
+  animation: hero-word-change 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transform-origin: left center;
+}
+
+@keyframes hero-word-change {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); filter: blur(3px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+
 .hero-lead {
   font-size: 16px;
   line-height: 1.6;
@@ -631,6 +583,12 @@ textarea:focus-visible {
   padding: 5px 6px 5px 16px;
   max-width: 640px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 220ms ease, transform 220ms ease;
+}
+
+.hero-search-bar:focus-within {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.38), 0 0 0 3px rgba(255, 255, 255, 0.2);
 }
 
 .hero-search-bar__icon {
@@ -688,6 +646,23 @@ textarea:focus-visible {
   padding: 24px;
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.65);
+  animation: hero-card-enter 850ms 120ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transition: transform 240ms ease, box-shadow 240ms ease;
+}
+
+.hero-metric-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 26px 55px rgba(0, 0, 0, 0.38);
+}
+
+@keyframes hero-content-enter {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hero-card-enter {
+  from { opacity: 0; transform: translate3d(18px, 0, 0) scale(0.98); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 .hero-metric-card__header {
@@ -2946,6 +2921,8 @@ textarea:focus-visible {
 @media (max-width: 1100px) {
   .hero-section__content {
     grid-template-columns: 1fr;
+    width: min(760px, calc(100% - 64px));
+    gap: 24px;
   }
   .hero-metric-card {
     max-width: 480px;
@@ -3042,6 +3019,18 @@ textarea:focus-visible {
   }
 }
 
+@media (max-width: 760px) {
+  .kenya-flag-banner {
+    height: 6px;
+  }
+
+  .brand-mark {
+    width: 56px;
+    height: 19px;
+    flex-basis: 56px;
+  }
+}
+
 @media (max-width: 600px) {
   .site-header__inner {
     gap: 12px;
@@ -3065,6 +3054,10 @@ textarea:focus-visible {
     min-height: 0;
     padding: 40px 0 58px;
   }
+  .hero-section__content {
+    width: calc(100% - 36px);
+    gap: 18px;
+  }
   .hero-section__text {
     padding: 20px 0;
   }
@@ -3072,11 +3065,6 @@ textarea:focus-visible {
     width: 100%;
     max-width: none;
     padding: 20px;
-  }
-  .hero-carousel__controls {
-    right: 50%;
-    bottom: 12px;
-    transform: translateX(50%);
   }
   .hero-carousel__slide:nth-child(2) .hero-section__image { object-position: 58% center; }
   .hero-carousel__slide:nth-child(3) .hero-section__image { object-position: 54% center; }
@@ -3355,7 +3343,12 @@ html[data-theme="dark"] :is(.project-card:hover, .detail-card, .taxonomy-card, .
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-carousel__slide {
+  .hero-carousel__slide,
+  .hero-section__text,
+  .hero-metric-card,
+  .hero-search-bar,
+  .hero-heading__changing {
     transition: none;
+    animation: none;
   }
 }
