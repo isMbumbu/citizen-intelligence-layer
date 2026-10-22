@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, UploadFile, status
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.v1.modules.comments import repository as comments_repository
@@ -258,6 +258,30 @@ async def get_evidence(
         evidence.processing_state,
     )
     return _response(evidence)
+
+
+async def list_public_evidence(
+    session: AsyncSession,
+    *,
+    project_id: UUID | None = None,
+    report_id: UUID | None = None,
+    comment_id: UUID | None = None,
+) -> list[EvidenceResponse]:
+    """Return publicly retrievable evidence for one project, report, or comment."""
+    try:
+        records = await repository.list_public(
+            session,
+            project_id=project_id,
+            report_id=report_id,
+            comment_id=comment_id,
+        )
+    except Exception as error:
+        logger.exception("Unable to list public evidence")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to retrieve evidence.",
+        ) from error
+    return [_response(record) for record in records if _is_publicly_retrievable(record)]
 
 
 async def download_evidence(
@@ -590,6 +614,7 @@ async def _upload(
                 file_size_bytes=file_size,
                 checksum_sha256=checksum,
                 storage_key=storage_key,
+                visibility=EvidenceVisibility.PUBLIC.value,
             ),
         )
     except HTTPException:
@@ -653,12 +678,20 @@ async def _validate_upload(
             raise _upload_error("Evidence MIME type does not match its content.")
         if f".{_extension_for_mime(detected_mime)}" != extension:
             raise _upload_error("Evidence filename does not match its content.")
+        if detected_mime in _METADATA_STRIPPED_MIME_TYPES:
+            # Public images must not leak GPS, device, or timestamp metadata, so
+            # the stored file (and its checksum) is the cleaned version.
+            file_size, checksum = await asyncio.to_thread(
+                _strip_image_metadata, temporary_path
+            )
+        else:
+            checksum = digest.hexdigest()
         return (
             temporary_path,
             original_filename,
             detected_mime,
             file_size,
-            digest.hexdigest(),
+            checksum,
         )
     except HTTPException:
         try:
@@ -703,6 +736,38 @@ def _detect_and_validate_content(path: Path) -> str:
         return mime_by_format[detected_format]
     except KeyError as error:
         raise ValueError("Unsupported image format.") from error
+
+
+_METADATA_STRIPPED_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+
+
+def _strip_image_metadata(path: Path) -> tuple[int, str]:
+    """Re-encode an image without EXIF/text metadata; return new size and hash.
+
+    Orientation is applied to the pixels first so photos still display upright
+    once the EXIF orientation tag is gone. GIFs are left unchanged: they carry no
+    EXIF block and re-encoding would break animation.
+    """
+    with Image.open(path) as source:
+        image_format = source.format
+        icc_profile = source.info.get("icc_profile")
+        animated = bool(getattr(source, "is_animated", False))
+        if animated:
+            cleaned = source
+            cleaned.load()
+        else:
+            cleaned = ImageOps.exif_transpose(source) or source.copy()
+        cleaned.info = {}
+        options: dict[str, object] = {}
+        if icc_profile:
+            options["icc_profile"] = icc_profile
+        if image_format == "JPEG":
+            options["quality"] = 92
+        if animated:
+            options["save_all"] = True
+        cleaned.save(path, format=image_format, **options)
+    content = path.read_bytes()
+    return len(content), hashlib.sha256(content).hexdigest()
 
 
 def _sanitize_filename(filename: str | None) -> str:

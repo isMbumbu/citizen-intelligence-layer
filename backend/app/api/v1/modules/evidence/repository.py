@@ -1,11 +1,13 @@
 """Asynchronous persistence functions for evidence metadata."""
 
+from typing import Any
 from uuid import UUID
 
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.logging import logger
+from app.models.enums import EvidenceModerationState, EvidenceVisibility
 from app.models.evidence import (
     EvidenceDerivedArtifact,
     EvidenceProcessingEvent,
@@ -54,6 +56,39 @@ async def list_for_project(
             col(EvidenceRecord.is_deleted).is_(False),
         )
         .order_by(col(EvidenceRecord.uploaded_at))
+    )
+    return list(result.all())
+
+
+async def list_public(
+    session: AsyncSession,
+    *,
+    project_id: UUID | None,
+    report_id: UUID | None,
+    comment_id: UUID | None,
+) -> list[EvidenceRecord]:
+    """Return public, non-moderated-away evidence for one target, newest first."""
+    conditions: list[Any] = [
+        col(EvidenceRecord.is_deleted).is_(False),
+        EvidenceRecord.visibility == EvidenceVisibility.PUBLIC.value,
+        col(EvidenceRecord.moderation_state).not_in(
+            [
+                EvidenceModerationState.HIDDEN.value,
+                EvidenceModerationState.REMOVED.value,
+            ]
+        ),
+    ]
+    if project_id is not None:
+        conditions.append(EvidenceRecord.project_id == project_id)
+    if report_id is not None:
+        conditions.append(EvidenceRecord.report_id == report_id)
+    if comment_id is not None:
+        conditions.append(EvidenceRecord.comment_id == comment_id)
+    result = await session.exec(
+        select(EvidenceRecord)
+        .where(*conditions)
+        .order_by(col(EvidenceRecord.uploaded_at).desc(), col(EvidenceRecord.id))
+        .limit(100)
     )
     return list(result.all())
 
