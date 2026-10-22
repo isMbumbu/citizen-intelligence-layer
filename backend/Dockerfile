@@ -37,7 +37,9 @@ COPY alembic ./alembic
 COPY alembic.ini ./
 
 RUN useradd --create-home --shell /usr/sbin/nologin appuser \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appuser /app \
+    && mkdir -p /var/lib/citizen-evidence \
+    && chown appuser:appuser /var/lib/citizen-evidence
 
 USER appuser
 
@@ -45,7 +47,10 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 
 FROM base AS runtime
 
-RUN useradd --create-home --shell /usr/sbin/nologin appuser
+# Evidence files live on a mounted volume shared by the API and worker.
+RUN useradd --create-home --shell /usr/sbin/nologin appuser \
+    && mkdir -p /var/lib/citizen-evidence \
+    && chown appuser:appuser /var/lib/citizen-evidence
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=appuser:appuser app ./app

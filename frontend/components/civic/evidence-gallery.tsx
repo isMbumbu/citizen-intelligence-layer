@@ -2,8 +2,16 @@
 /* eslint-disable @next/next/no-img-element -- user evidence is served by the API, not the Next image optimiser */
 
 import Link from "next/link";
+import { useState } from "react";
 import { type Evidence, evidenceFileUrl } from "@/lib/api";
 import { Icon, formatDate } from "./ui";
+
+/** A public evidence image that falls back to a neutral tile if the file is unavailable. */
+export function EvidenceImage({ id, alt }: { id: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className="evidence-tile__doc"><Icon name="evidence" size={22}/><span>File unavailable</span></span>;
+  return <img src={evidenceFileUrl(id)} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(true)}/>;
+}
 
 function sourceLabel(item: Evidence) {
   if (item.report_id) return "On a citizen report";
@@ -22,7 +30,7 @@ export function EvidenceGallery({ items, showSource = false, compact = false }: 
       return <li key={item.id}>
         <Link href={`/evidence/${item.id}`} className="evidence-tile" aria-label={`Open citizen evidence ${item.original_filename}`}>
           {isImage
-            ? <img src={evidenceFileUrl(item.id)} alt={`Citizen-submitted photo ${item.original_filename}`} loading="lazy" decoding="async"/>
+            ? <EvidenceImage id={item.id} alt="Photo submitted by a citizen"/>
             : <span className="evidence-tile__doc"><Icon name="evidence" size={compact ? 18 : 26}/><span>{item.mime_type === "application/pdf" ? "PDF" : "File"}</span></span>}
           {!compact && <span className="evidence-tile__caption"><strong>{showSource ? sourceLabel(item) : formatDate(item.uploaded_at)}</strong>{showSource && <small>{formatDate(item.uploaded_at)}</small>}</span>}
         </Link>

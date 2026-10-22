@@ -1,14 +1,14 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- user evidence is served by the API, not the Next image optimiser */
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { type PublicEvidenceItem, evidenceFileUrl, fetchCategories, fetchEvidenceFeed, fetchProjects } from "@/lib/api";
+import { type PublicEvidenceItem, fetchCategories, fetchEvidenceFeed, fetchProjects } from "@/lib/api";
 import { attachedToLabel, evidenceKindLabel, processingLabel } from "@/lib/labels";
 import { useApiQuery } from "@/lib/use-api-query";
 import { EmptyState, ErrorState, Icon, LoadingSkeleton, formatDate } from "./ui";
 import { PageIntro } from "./site-shell";
+import { EvidenceImage } from "./evidence-gallery";
 
 const pageSize = 24;
 
@@ -22,7 +22,7 @@ function EvidenceCard({ item }: { item: PublicEvidenceItem }) {
   return <article className="evidence-card">
     <Link href={`/evidence/${item.id}`} className="evidence-card__media" aria-label={`Open ${evidenceKindLabel(item.mime_type).toLowerCase()} for ${item.project_name}`}>
       {item.kind === "image"
-        ? <img src={evidenceFileUrl(item.id)} alt={`${evidenceKindLabel(item.mime_type)} for ${item.project_name}`} loading="lazy" decoding="async"/>
+        ? <EvidenceImage id={item.id} alt={`${evidenceKindLabel(item.mime_type)} for ${item.project_name}`}/>
         : <span className="evidence-tile__doc"><Icon name="evidence" size={30}/><span>{item.mime_type === "application/pdf" ? "PDF document" : "Document"}</span></span>}
     </Link>
     <div className="evidence-card__body">

@@ -26,8 +26,12 @@ services:
     environment:
       # The Next.js service reaches FastAPI by its Compose service name.
       TRUSTED_HOSTS: '["localhost","127.0.0.1","testserver","api"]'
+      EVIDENCE_STORAGE_ROOT: /var/lib/citizen-evidence
     volumes:
       - ./backend:/app
+      # Uploaded evidence must survive container rebuilds and be readable by
+      # the worker, so it lives on a shared named volume.
+      - evidence_data:/var/lib/citizen-evidence
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -55,6 +59,10 @@ services:
     build: *backend-build
     env_file: .env
     command: ["celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=info"]
+    environment:
+      EVIDENCE_STORAGE_ROOT: /var/lib/citizen-evidence
+    volumes:
+      - evidence_data:/var/lib/citizen-evidence
     restart: unless-stopped
     depends_on:
       migrate:
@@ -106,6 +114,7 @@ services:
       retries: 12
 
 volumes:
+  evidence_data:
   postgres_data:
   redis_data:
   rabbitmq_data:

@@ -4356,7 +4356,8 @@ html[data-theme="dark"] .report-attachment {
 }
 
 .evidence-tile img,
-.evidence-tile__doc {
+.evidence-tile__doc,
+.evidence-card__media .evidence-tile__doc {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
@@ -4738,8 +4739,12 @@ html[data-theme="dark"] .report-confirmation__reference code {
 .guide-page {
   display: grid;
   gap: 24px;
-  max-width: 920px;
   padding-bottom: 56px;
+}
+
+.guide-section > p,
+.guide-list {
+  max-width: 760px;
 }
 
 .guide-steps {
