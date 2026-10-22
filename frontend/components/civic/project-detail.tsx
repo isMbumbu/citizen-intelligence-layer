@@ -24,6 +24,7 @@ import {
 } from "@/lib/api";
 import { getContributorId } from "@/lib/contributor";
 import { rememberReport } from "@/lib/my-reports";
+import { claimKindLabel, commentStateLabel, fieldLabel } from "@/lib/labels";
 import { useApiQuery } from "@/lib/use-api-query";
 import {
   EmptyState,
@@ -98,6 +99,17 @@ export function ProjectDetailPage({ id }: { id: string }) {
       <div className="content-wrap detail-grid">
         <div className="detail-main">
           <TrustSummary project={project} sources={data.sources} verification={data.verification} anomalies={data.anomalies} />
+          <details className="record-guide">
+            <summary><Icon name="shield" size={15} /> How to read this record</summary>
+            <dl>
+              <div><dt>Public record</dt><dd>Information published about the project.</dd></div>
+              <div><dt>Verified</dt><dd>The project&rsquo;s status has been independently checked. Only the Verification section can say this.</dd></div>
+              <div><dt>Reported progress</dt><dd>An update on how far the work has got, not proof.</dd></div>
+              <div><dt>Citizen reports and evidence</dt><dd>Public submissions, not confirmed findings.</dd></div>
+              <div><dt>Review signal</dt><dd>A prompt for further checking, not an accusation.</dd></div>
+            </dl>
+            <Link href="/how-it-works">More on how CivicAct works</Link>
+          </details>
           <section className="detail-section" id="overview">
             <div className="section-heading">
               <h2>Project overview</h2>
@@ -126,6 +138,7 @@ export function ProjectDetailPage({ id }: { id: string }) {
           <Timeline project={project} />
           <VerificationPanel verification={data.verification} />
           <ReviewSignals anomalies={data.anomalies} />
+          <EvidenceAreaIntro />
           <Sources sources={data.sources} />
           <ProjectEvidence claims={project.evidence} />
           <CitizenEvidence />
@@ -299,19 +312,34 @@ function ReviewSignals({ anomalies }: { anomalies: ProjectAnomaly[] }) {
   );
 }
 
+function EvidenceAreaIntro() {
+  return (
+    <section className="evidence-area-intro" id="evidence" aria-labelledby="evidence-heading">
+      <h2 id="evidence-heading">Evidence &amp; sources</h2>
+      <p>Official sources and citizen-submitted evidence are kept separate so you can weigh them differently.</p>
+      <nav aria-label="Evidence sections">
+        <a href="#sources">Official sources</a>
+        <a href="#project-facts">Project facts</a>
+        <a href="#citizen-evidence">Citizen-submitted evidence</a>
+        <a href="#share-evidence">Submit supporting evidence</a>
+      </nav>
+    </section>
+  );
+}
+
 function Sources({ sources }: { sources: ClaimEvidence[] }) {
   return (
     <section className="detail-section" id="sources">
       <div className="section-heading">
-        <h2>Sources &amp; provenance</h2>
-        <Icon name="download" size={16} />
+        <h2>Official sources</h2>
+        <span className="trust-chip trust-chip--official">Official source</span>
       </div>
       {sources.length ? (
         <div className="source-list">
           {sources.map((claim) => (
             <details key={claim.id} className="source-card">
               <summary>
-                <span><strong>{claim.field_name}</strong><small>{claim.claim_kind.replaceAll("_", " ")}</small></span>
+                <span><strong>{fieldLabel(claim.field_name)}</strong><small>{claimKindLabel(claim.claim_kind)}</small></span>
                 <Icon name="arrow" size={16} />
               </summary>
               <p>{claim.value_text}</p>
@@ -341,9 +369,10 @@ function CitizenEvidence() {
   return (
     <section className="detail-section" id="citizen-evidence">
       <div className="section-heading">
-        <h2>Photos and documents from citizens</h2>
-        <span>Shared by citizens, not verified</span>
+        <h2>Citizen-submitted evidence</h2>
+        <span className="trust-chip trust-chip--citizen">Citizen-submitted</span>
       </div>
+      <p className="trust-copy">Photos and documents shared on this project, its reports, and its comments. Useful context, not verification. <a href="#share-evidence">Submit supporting evidence</a></p>
       {items.length ? <EvidenceGallery items={items} showSource /> : <EmptyState title="No citizen evidence yet" body="Photos and documents shared on this project, its reports, or its comments will appear here." />}
     </section>
   );
@@ -351,10 +380,10 @@ function CitizenEvidence() {
 
 function ProjectEvidence({ claims }: { claims: ClaimEvidence[] }) {
   return (
-    <section className="detail-section">
+    <section className="detail-section" id="project-facts">
       <div className="section-heading">
-        <h2>Evidence references</h2>
-        <span>Supporting claims, not uploaded files</span>
+        <h2>Project facts and where they come from</h2>
+        <span>Derived project record</span>
       </div>
       {claims.length ? (
         <div className="evidence-claims">
@@ -362,7 +391,7 @@ function ProjectEvidence({ claims }: { claims: ClaimEvidence[] }) {
             <article key={claim.id}>
               <Icon name="evidence" />
               <div>
-                <strong>{claim.field_name}</strong>
+                <strong>{fieldLabel(claim.field_name)}</strong>
                 <p>{claim.value_text}</p>
                 <small>{claim.sources.length} linked source{claim.sources.length === 1 ? "" : "s"}</small>
               </div>
@@ -370,7 +399,7 @@ function ProjectEvidence({ claims }: { claims: ClaimEvidence[] }) {
           ))}
         </div>
       ) : (
-        <EmptyState title="No evidence references" body="The project detail does not contain linked evidence claims." />
+        <EmptyState title="No project facts linked yet" body="This record does not yet link its facts to sources." />
       )}
     </section>
   );
@@ -485,14 +514,7 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
         </div>
         {Boolean(error) && <p className="form-error" role="alert">{humanError(error)}</p>}
         {Boolean(attachmentError) && <p className="form-error" role="alert">{submitted ? "Your report was saved, but the attachment could not be uploaded: " : ""}{humanError(attachmentError)}{submitted ? " You can add it from the report's status page." : ""}</p>}
-        {submitted && (
-          <div className="form-success" role="status">
-            <p>Report submitted. It is saved under <Link href="/reports">My reports</Link> in this browser. Your reference:</p>
-            <code className="report-reference">{submitted}</code>
-            {attached && <p>Attachment received. <Link href={`/evidence/${attached.id}`}>View its record</Link></p>}
-            <Link href={`/reports/${submitted}`}>Track this report <Icon name="arrow" size={13} /></Link>
-          </div>
-        )}
+        {submitted && <ReportConfirmation reference={submitted} attached={attached} />}
         <button className="button button--red button--full" disabled={pending}>
           {pending ? "Submitting…" : "Report an Issue"} <Icon name="arrow" size={15} />
         </button>
@@ -501,12 +523,45 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
   );
 }
 
+function ReportConfirmation({ reference, attached }: { reference: string; attached: Evidence | undefined }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(reference);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <div className="report-confirmation" role="status">
+      <div className="report-confirmation__head"><Icon name="check" size={18} /><strong>Your report was submitted</strong></div>
+      <p>It&rsquo;s saved under <Link href="/reports">My reports</Link> on this device, so you can check it without the reference.</p>
+      <div className="report-confirmation__reference">
+        <span>Report reference</span>
+        <code>{reference}</code>
+        <button type="button" className="button button--outline" onClick={() => void copy()}>{copied ? "Copied" : "Copy reference"}</button>
+      </div>
+      {attached && <p>Your attachment was received. <Link href={`/evidence/${attached.id}`}>View it</Link></p>}
+      <div className="report-confirmation__next">
+        <strong>What happens next</strong>
+        <ul>
+          <li>Your report is recorded as <em>Submitted</em> and listed publicly without your contact details.</li>
+          <li>Its status page shows any reporting channels, linked institutions, and responses as they are published.</li>
+          <li>A report is citizen input, not a verified finding.</li>
+        </ul>
+      </div>
+      <Link className="button button--red button--full" href={`/reports/${reference}`}>Check its status <Icon name="arrow" size={14} /></Link>
+    </div>
+  );
+}
+
 function EvidenceUpload({ projectId }: { projectId: string }) {
   const { refresh } = useContext(EvidenceContext);
   return (
-    <section className="aside-card evidence-upload">
+    <section className="aside-card evidence-upload" id="share-evidence">
       <div className="aside-card__icon"><Icon name="upload" /></div>
-      <h2>Share evidence</h2>
+      <h2>Submit supporting evidence</h2>
       <p>Photos or documents about this project. Evidence is shared by citizens and processed by the service; it is not verification.</p>
       <EvidenceUploadForm path={`/projects/${projectId}/evidence`} onUploaded={() => void refresh()} />
     </section>
@@ -609,7 +664,8 @@ function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; 
           <strong>Citizen contributor</strong>
           <small>{formatDate(comment.created_at)} · {comment.trust_label.replaceAll("_", " ")}</small>
         </div>
-        <span className="metadata-tag">{comment.moderation_state}</span>
+        <span className={`state-chip state-chip--${commentStateLabel(comment.moderation_state).tone}`}>{commentStateLabel(comment.moderation_state).label}</span>
+        {commentStateLabel(comment.moderation_state).tone !== "neutral" && <Link className="state-why" href="/community-safety#content-states">Why?</Link>}
       </div>
       <p>{comment.content}</p>
       <div className="comment-actions">

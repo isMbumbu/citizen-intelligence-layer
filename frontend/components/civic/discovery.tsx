@@ -166,6 +166,24 @@ function RotatingHeroWord() {
   return <strong key={heroStatements[activeWord]} className="hero-heading__changing" aria-hidden="true">{heroStatements[activeWord]}</strong>;
 }
 
+async function loadCountyCounts() {
+  const page = await fetchProjects({ page_size: 100 });
+  const counts = new Map<string, number>();
+  page.items.forEach((project) => counts.set(project.location.county, (counts.get(project.location.county) ?? 0) + 1));
+  // Counts are exact only when every project fits in one page.
+  return { complete: page.total <= page.items.length, counties: Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name)) };
+}
+
+function CountyBrowse() {
+  const { data, error, loading } = useApiQuery(loadCountyCounts);
+  if (error || (!loading && !data?.counties.length)) return null;
+  return <section className="home-county-section content-wrap" aria-labelledby="county-heading">
+    <div className="section-head"><div><p className="eyebrow">CLOSE TO HOME</p><h2 id="county-heading">Browse by county</h2></div><Link href="/projects" className="section-head__link"><span>All projects and filters</span><Icon name="arrow" size={14}/></Link></div>
+    {loading ? <LoadingSkeleton lines={2}/> : <ul className="county-chips">{data?.counties.map((county) => <li key={county.name}><Link href={`/projects?county=${encodeURIComponent(county.name)}`}><Icon name="pin" size={15}/><span>{county.name}</span>{data.complete && <small>{county.count} project{county.count === 1 ? "" : "s"}</small>}</Link></li>)}</ul>}
+    <p className="form-hint">Pick a county, then narrow by ward, category, or status on the projects page.</p>
+  </section>;
+}
+
 export function CivicHome() {
   const query = useCallback(() => fetchProjects({ page_size: 4 }), []);
   const { data, error, loading, refresh } = useApiQuery(query);
@@ -197,6 +215,8 @@ export function CivicHome() {
         <PlatformStats projectCount={data?.total} failed={Boolean(error)}/>
       </div>
     </section>
+
+    <CountyBrowse />
 
     <section className="home-featured-section content-wrap">
       <div className="section-head"><div><p className="eyebrow">PUBLIC PROJECT RECORDS</p><h2>Projects to explore</h2></div><Link href="/projects" className="section-head__link"><span>Browse all projects</span><Icon name="arrow" size={14}/></Link></div>

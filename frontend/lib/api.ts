@@ -571,6 +571,46 @@ export function uploadEvidence(
   });
 }
 
+/** Browse-safe evidence card from GET /evidence; never includes uploader or file names. */
+export interface PublicEvidenceItem {
+  id: string;
+  project_id: string;
+  project_name: string;
+  county: string;
+  category: string;
+  attached_to: "project" | "report" | "comment";
+  kind: "image" | "document";
+  mime_type: string;
+  review_status: "NOT_YET_REVIEWED" | "UNDER_REVIEW";
+  processing_state: string;
+  uploaded_at: string;
+  trust_label: string;
+}
+
+export interface PublicEvidencePage {
+  items: PublicEvidenceItem[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface EvidenceFeedFilters {
+  page?: number;
+  page_size?: number;
+  project_id?: string;
+  category_id?: string;
+  county?: string;
+  kind?: "image" | "document";
+}
+
+export function fetchEvidenceFeed(filters: EvidenceFeedFilters = {}): Promise<PublicEvidencePage> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  });
+  return apiFetch<PublicEvidencePage>(`/evidence${params.size ? `?${params.toString()}` : ""}`);
+}
+
 export type EvidenceTarget = "projects" | "reports" | "comments";
 
 /** Public evidence for one project (including report/comment attachments), report, or comment. */

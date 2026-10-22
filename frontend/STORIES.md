@@ -2451,6 +2451,37 @@ As a citizen, I want to attach photos or documents wherever I contribute, so tha
 
 ---
 
+## Story ID
+CIVICACT-FE-055
+
+### Epic
+Trust-first presentation
+
+### User Story
+As a member of the public, I want evidence, sources, and safety information presented in plain language, so that the site feels protective and transparent rather than like an admin tool.
+
+### Backend/API Dependency
+- GET /api/v1/evidence
+- GET /api/v1/projects/{project_id}/sources and /evidence
+- GET /api/v1/evidence/{evidence_id}
+
+### Acceptance Criteria
+- Given the header renders, When a citizen looks at navigation, Then it shows Projects, Reports, Categories, Evidence & Sources, and How it works, and not the staff moderation tool.
+- Given the Evidence & Sources page loads, When evidence exists, Then project-linked evidence cards are shown with filters for county, category, type, and project; evidence references are only an optional disclosure.
+- Given a project page, When the evidence area renders, Then official sources, project facts, and citizen-submitted evidence are separate, with a link to submit supporting evidence.
+- Given source facts render, When field names are technical, Then plain-language labels are shown (for example "Allocated budget" instead of allocated_amount).
+- Given an evidence record, When it is shown, Then it uses plain-language metadata and neutral review labels, never shows uploader IDs or filenames, and downloads only after a warning.
+- Given a comment or evidence item is under review, limited, or removed, When its state is shown, Then a neutral label links to Community safety.
+- Given a report is submitted, When the API returns 201, Then a confirmation shows the reference with a copy button, notes it is saved in My reports, explains what happens next, and links to its status.
+- Given the homepage, When projects load, Then citizens can browse by county.
+- Given an offline build environment, When the frontend builds, Then fonts load from bundled files.
+
+### Data Mapping
+- PublicEvidenceItem: project_name, county, category, attached_to, kind, review_status, processing_state, uploaded_at
+- ClaimEvidence.field_name and claim_kind mapped to plain-language labels
+
+---
+
 ## Traceability summary
 
 | Story ID | Epic | Screen/Component | API Endpoint | Backend Supported? | Status |
@@ -2509,6 +2540,7 @@ As a citizen, I want to attach photos or documents wherever I contribute, so tha
 | CIVICACT-FE-052 | EPIC 16 | Trust-first home and project summary | GET /api/v1/projects; project detail, sources, verification, anomalies | Yes | Implemented |
 | CIVICACT-FE-053 | EPIC 16 | Citizen forms without typed identifiers | Reports, comments, comment reports, evidence | Yes | Implemented |
 | CIVICACT-FE-054 | EPIC 16 | Evidence on reports and comments | Project, report, and comment evidence uploads | Yes | Implemented |
+| CIVICACT-FE-055 | EPIC 16 | Evidence & Sources, Community safety, plain language | Evidence browse, sources, evidence detail | Yes | Implemented |
 
 ## Final scope note
 
