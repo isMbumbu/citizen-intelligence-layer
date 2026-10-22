@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { fetchHealth } from "@/lib/api";
 import { useApiQuery } from "@/lib/use-api-query";
 import { Brand, Icon } from "./ui";
@@ -115,8 +115,51 @@ export function Footer() {
   </div></footer>;
 }
 
+function RouteTransition({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const [pending, setPending] = useState(false);
+  const timeout = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    setPending(false);
+    window.clearTimeout(timeout.current);
+  }, [pathname]);
+
+  useEffect(() => {
+    const handleNavigation = (event: MouseEvent) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!(event.target instanceof Element)) return;
+
+      const link = event.target.closest<HTMLAnchorElement>("a[href]");
+      if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+
+      const destination = new URL(link.href, window.location.href);
+      if (destination.origin !== window.location.origin) return;
+      if (destination.pathname === window.location.pathname && destination.search === window.location.search) return;
+
+      setPending(true);
+      window.clearTimeout(timeout.current);
+      timeout.current = window.setTimeout(() => setPending(false), 8000);
+    };
+
+    document.addEventListener("click", handleNavigation);
+    return () => {
+      document.removeEventListener("click", handleNavigation);
+      window.clearTimeout(timeout.current);
+    };
+  }, []);
+
+  return (
+    <>
+      <div className={`route-progress${pending ? " is-active" : ""}`} aria-hidden="true"><span /></div>
+      <span className="sr-only" aria-live="polite">{pending ? "Loading page" : ""}</span>
+      <div className="route-page" key={pathname}>{children}</div>
+    </>
+  );
+}
+
 export function SiteShell({ children }: { children: ReactNode }) {
-  return <div className="app-shell"><Header/><main className="app-main">{children}</main><Footer/></div>;
+  return <div className="app-shell"><Header/><main className="app-main"><RouteTransition>{children}</RouteTransition></main><Footer/></div>;
 }
 
 export function PageIntro({ eyebrow, title, body, children }: { eyebrow?: string; title: string; body: string; children?: ReactNode }) {
