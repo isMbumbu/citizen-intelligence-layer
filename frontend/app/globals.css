@@ -4160,3 +4160,36 @@ html[data-theme="dark"] .report-tracker--link {
   font-weight: 700;
   color: var(--brand-green);
 }
+
+/* ==========================================================================
+   EVIDENCE FORMS
+   ========================================================================== */
+.evidence-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-attachment {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.report-attachment > small {
+  font-weight: 500;
+}
+
+.comment-evidence-form {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border-hairline);
+  border-radius: 8px;
+}
+
+html[data-theme="dark"] .report-attachment {
+  color: #a5b4c7;
+}
