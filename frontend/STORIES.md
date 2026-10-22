@@ -2422,6 +2422,35 @@ As a citizen, I want to report an issue, comment, report a comment, or share evi
 
 ---
 
+## Story ID
+CIVICACT-FE-054
+
+### Epic
+Trust-first presentation
+
+### User Story
+As a citizen, I want to attach photos or documents wherever I contribute, so that my report or comment can be backed by evidence.
+
+### Backend/API Dependency
+- POST /api/v1/projects/{project_id}/evidence
+- POST /api/v1/projects/{project_id}/reports/{report_id}/evidence
+- POST /api/v1/reports/{report_id}/evidence
+- POST /api/v1/comments/{comment_id}/evidence
+
+### Acceptance Criteria
+- Given a citizen is reporting an issue, When they choose an optional file, Then it is uploaded to the new report after the report is saved; if the upload fails the report remains saved and the citizen is told how to add the file later.
+- Given a report status page, When a citizen uploads a file, Then it is attached to that report.
+- Given a public comment, When a citizen chooses "Attach evidence", Then the file is attached to that comment.
+- Given a file that is not a PDF, JPG, PNG, WebP, or GIF, or is over 10 MB, When it is chosen, Then the citizen is told before anything is uploaded.
+- Given the API rejects an upload with a specific reason, When the error is shown, Then that reason is displayed.
+
+### Data Mapping
+- uploader_id: anonymous browser reference
+- file: multipart upload
+- Evidence.id for the confirmation link
+
+---
+
 ## Traceability summary
 
 | Story ID | Epic | Screen/Component | API Endpoint | Backend Supported? | Status |
@@ -2479,6 +2508,7 @@ As a citizen, I want to report an issue, comment, report a comment, or share evi
 | CIVICACT-FE-051 | EPIC 15 | Production readiness | All mounted endpoints | Yes | Planned |
 | CIVICACT-FE-052 | EPIC 16 | Trust-first home and project summary | GET /api/v1/projects; project detail, sources, verification, anomalies | Yes | Implemented |
 | CIVICACT-FE-053 | EPIC 16 | Citizen forms without typed identifiers | Reports, comments, comment reports, evidence | Yes | Implemented |
+| CIVICACT-FE-054 | EPIC 16 | Evidence on reports and comments | Project, report, and comment evidence uploads | Yes | Implemented |
 
 ## Final scope note
 

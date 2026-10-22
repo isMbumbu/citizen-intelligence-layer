@@ -20,7 +20,6 @@ import {
   fetchProjectSources,
   fetchVerification,
   reportComment,
-  uploadEvidence,
 } from "@/lib/api";
 import { getContributorId } from "@/lib/contributor";
 import { rememberReport } from "@/lib/my-reports";
@@ -38,6 +37,7 @@ import {
   humanError,
 } from "./ui";
 import { ReportRow } from "./reports";
+import { EvidenceFileInput, EvidenceUploadForm, evidenceFileProblem, uploadEvidenceFile } from "./evidence-upload";
 
 type DetailData = {
   project: ProjectDetail;
@@ -375,6 +375,9 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
   const [category, setCategory] = useState("QUALITY");
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
+  const [attachment, setAttachment] = useState<File>();
+  const [attachmentError, setAttachmentError] = useState<unknown>();
+  const [attached, setAttached] = useState<Evidence>();
   const [pending, setPending] = useState(false);
   const [submitted, setSubmitted] = useState<string>();
   const [error, setError] = useState<unknown>();
@@ -385,6 +388,13 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
     event.preventDefault();
     setError(undefined);
     setSubmitted(undefined);
+    setAttachmentError(undefined);
+    setAttached(undefined);
+    const attachmentProblem = attachment && evidenceFileProblem(attachment);
+    if (attachmentProblem) {
+      setAttachmentError(new ApiError(attachmentProblem, 422));
+      return;
+    }
     if (descriptionLength < 10) {
       setDescriptionError(`The description needs at least 10 characters. Add ${10 - descriptionLength} more.`);
       return;
@@ -401,6 +411,15 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
       setSubmitted(report.id);
       setDescription("");
       setContact("");
+      if (attachment) {
+        // The report is already saved; a failed upload is reported separately.
+        try {
+          setAttached(await uploadEvidenceFile(`/projects/${projectId}/reports/${report.id}/evidence`, attachment));
+          setAttachment(undefined);
+        } catch (caught) {
+          setAttachmentError(caught);
+        }
+      }
     } catch (caught) {
       setError(caught);
     } finally {
@@ -434,11 +453,18 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
           <input value={contact} maxLength={255} placeholder="Leave blank to report anonymously" onChange={(event) => setContact(event.target.value)} />
           <small>Stored with your report only. It is never shown publicly.</small>
         </label>
+        <div className="report-attachment">
+          <span>Photo or document <span className="field-optional">(optional)</span></span>
+          <EvidenceFileInput file={attachment} onChange={(file) => { setAttachment(file); setAttachmentError(undefined); }} />
+          <small>PDF, JPG, PNG, WebP, or GIF up to 10 MB. Attached to your report as citizen evidence.</small>
+        </div>
         {Boolean(error) && <p className="form-error" role="alert">{humanError(error)}</p>}
+        {Boolean(attachmentError) && <p className="form-error" role="alert">{submitted ? "Your report was saved, but the attachment could not be uploaded: " : ""}{humanError(attachmentError)}{submitted ? " You can add it from the report's status page." : ""}</p>}
         {submitted && (
           <div className="form-success" role="status">
             <p>Report submitted. It is saved under <Link href="/reports">My reports</Link> in this browser. Your reference:</p>
             <code className="report-reference">{submitted}</code>
+            {attached && <p>Attachment received. <Link href={`/evidence/${attached.id}`}>View its record</Link></p>}
             <Link href={`/reports/${submitted}`}>Track this report <Icon name="arrow" size={13} /></Link>
           </div>
         )}
@@ -451,53 +477,12 @@ function ReportForm({ projectId, projectName }: { projectId: string; projectName
 }
 
 function EvidenceUpload({ projectId }: { projectId: string }) {
-  const [file, setFile] = useState<File>();
-  const [result, setResult] = useState<Evidence>();
-  const [error, setError] = useState<unknown>();
-  const [pending, setPending] = useState(false);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(undefined);
-    if (!file) {
-      setError(new ApiError("Choose a file to upload", 422));
-      return;
-    }
-    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowed.includes(file.type)) {
-      setError(new ApiError("Unsupported evidence type", 422));
-      return;
-    }
-    setPending(true);
-    try {
-      const form = new FormData();
-      form.append("uploader_id", getContributorId());
-      form.append("file", file);
-      setResult(await uploadEvidence(`/projects/${projectId}/evidence`, form));
-    } catch (caught) {
-      setError(caught);
-    } finally {
-      setPending(false);
-    }
-  };
-
   return (
     <section className="aside-card evidence-upload">
       <div className="aside-card__icon"><Icon name="upload" /></div>
       <h2>Share evidence</h2>
-      <p>Accepted: PDF, JPG, PNG, WebP, or GIF. Public evidence is shared by citizens and processed by the service.</p>
-      <form onSubmit={submit}>
-        <label className="file-input">
-          <Icon name="upload" /> <span>{file?.name ?? "Choose a file"}</span>
-          <input type="file" accept=".pdf,image/jpeg,image/png,image/webp,image/gif" onChange={(event) => setFile(event.target.files?.[0])} />
-        </label>
-        {Boolean(error) && <p className="form-error">{humanError(error)}</p>}
-        <small className="form-hint">Submitted with an anonymous reference saved in this browser.</small>
-        {result && <p className="form-success">Evidence received. <Link href={`/evidence/${result.id}`}>View metadata</Link></p>}
-        <button className="button button--outline button--full" disabled={pending}>
-          {pending ? "Uploading…" : "Upload evidence"}
-        </button>
-      </form>
+      <p>Photos or documents about this project. Evidence is shared by citizens and processed by the service; it is not verification.</p>
+      <EvidenceUploadForm path={`/projects/${projectId}/evidence`} />
     </section>
   );
 }
@@ -571,6 +556,7 @@ function Comments({ projectId, initialComments, onChange }: { projectId: string;
 
 function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; onReply: () => void; onReport: () => void }) {
   const [open, setOpen] = useState(false);
+  const [attaching, setAttaching] = useState(false);
   const [reason, setReason] = useState("SPAM");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<unknown>();
@@ -600,8 +586,10 @@ function CommentCard({ comment, onReply, onReport }: { comment: CitizenComment; 
       <p>{comment.content}</p>
       <div className="comment-actions">
         <button className="text-button" onClick={onReply}>Reply</button>
+        <button className="text-button" onClick={() => setAttaching(!attaching)} aria-expanded={attaching}>Attach evidence</button>
         <button className="text-button" onClick={() => setOpen(!open)}>Report comment</button>
       </div>
+      {attaching && <EvidenceUploadForm path={`/comments/${comment.id}/evidence`} submitLabel="Attach to this comment" className="comment-evidence-form" />}
       {open && (
         <form className="comment-report-form" onSubmit={submit}>
           <select value={reason} aria-label="Reason for reporting this comment" onChange={(event) => setReason(event.target.value)}>

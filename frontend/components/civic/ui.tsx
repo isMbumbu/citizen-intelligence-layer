@@ -50,6 +50,13 @@ export function EmptyState({ title = "Nothing to show yet", body, action }: { ti
   return <div className="empty-state"><Icon name="folder" size={22}/><div><strong>{title}</strong><p>{body}</p>{action}</div></div>;
 }
 
+// Specific server messages (e.g. "Evidence file type is not allowed.") are worth
+// showing; the API's generic request-validation message is not.
+function serverDetail(detail: unknown): string | undefined {
+  const message = typeof detail === "object" && detail !== null && "detail" in detail ? (detail as { detail: unknown }).detail : undefined;
+  return typeof message === "string" && message !== "Request validation failed." ? message : undefined;
+}
+
 export function humanError(error: unknown): string {
   if (!(error instanceof ApiError)) return "We could not load this public information. Please try again.";
   if (error.status === 0) return "The public service is unavailable right now. Please try again shortly.";
@@ -58,7 +65,7 @@ export function humanError(error: unknown): string {
   if (error.status === 409) return "That action conflicts with the record’s current state. Refresh and try again.";
   // Errors raised by client-side validation carry a specific message and no
   // server detail; the API's own 422 body does not identify the field.
-  if (error.status === 422) return error.detail === undefined ? error.message : "Please check the information entered and try again.";
+  if (error.status === 422) return error.detail === undefined ? error.message : serverDetail(error.detail) ?? "Please check the information entered and try again.";
   if (error.status === 429) return `Too many requests. Please try again${error.retryAfter ? ` in ${error.retryAfter} seconds` : ""}.`;
   if (error.status === 503) return "The public service is temporarily unavailable. Please try again later.";
   return "We could not complete that request. Please try again.";
