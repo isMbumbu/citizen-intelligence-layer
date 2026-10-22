@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Citizen Intelligence Layer",
   description:
     "Information for citizens about public spending, projects, evidence, and civic action.",
-  icons: { icon: "/kenya-brush-flag.png", apple: "/kenya-brush-flag.png" },
+  icons: { icon: "/kenya-brush-favicon.png", apple: "/kenya-brush-favicon.png" },
   manifest: "/site.webmanifest",
 };
 

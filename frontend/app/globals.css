@@ -64,6 +64,53 @@ textarea:focus-visible {
   flex: 1;
 }
 
+.route-page {
+  min-height: 100%;
+  animation: route-page-arrive 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transform-origin: top center;
+}
+
+.route-progress {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.route-progress.is-active {
+  opacity: 1;
+}
+
+.route-progress span {
+  display: block;
+  width: 34%;
+  height: 100%;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(90deg, transparent, #057a55 25%, #ffffff 47%, #d92d20 58%, #057a55 82%, transparent);
+  filter: drop-shadow(0 0 4px rgb(5 122 85 / 65%));
+  transform: translateX(-110%);
+}
+
+.route-progress.is-active span {
+  animation: route-progress-sweep 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes route-page-arrive {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.994); filter: blur(3px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+}
+
+@keyframes route-progress-sweep {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(310%); }
+}
+
 .content-wrap {
   width: min(1340px, calc(100% - 48px));
   margin: 0 auto;
@@ -121,21 +168,62 @@ textarea:focus-visible {
 }
 
 .brand-mark {
-  width: 68px;
-  height: 23px;
+  width: 96px;
+  height: 32px;
   display: block;
-  flex: 0 0 68px;
+  flex: 0 0 96px;
   background-color: transparent;
   background-image: url("/kenya-brush-flag.png");
   background-position: center;
   background-size: 100% 100%;
-  filter: drop-shadow(0 1px 1px rgb(9 19 31 / 14%));
+  filter: brightness(1.08) contrast(1.05) drop-shadow(0 0 1px rgb(255 255 255 / 90%)) drop-shadow(0 1px 2px rgb(9 19 31 / 35%));
 }
 
 .brand-copy {
   display: flex;
   flex-direction: column;
   line-height: 1.1;
+}
+
+.brand-copy strong {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.brand-copy .brand-name {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  line-height: 1;
+  color: #09131f;
+  white-space: nowrap;
+}
+
+.brand-copy .brand-act {
+  color: var(--brand-red);
+}
+
+.brand-copy .brand-tagline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  color: #39715d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.brand-tagline::before {
+  content: "";
+  width: 14px;
+  height: 2px;
+  flex: 0 0 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #057a55 0 46%, #ffffff 46% 54%, #d92d20 54% 100%);
 }
 
 .brand-title {
@@ -3172,9 +3260,9 @@ html[data-theme="dark"] .status-badge--rejected {
   }
 
   .brand-mark {
-    width: 56px;
-    height: 19px;
-    flex-basis: 56px;
+    width: 72px;
+    height: 24px;
+    flex-basis: 72px;
   }
 }
 
@@ -3192,10 +3280,12 @@ html[data-theme="dark"] .status-badge--rejected {
     display: none;
   }
   .brand-copy strong {
-    font-size: 16px;
+    font-size: 17px;
   }
-  .brand-copy small {
+  .brand-copy .brand-tagline {
     font-size: 8px;
+    letter-spacing: 0.35px;
+    gap: 4px;
   }
   .hero-section {
     min-height: 0;
@@ -3247,6 +3337,24 @@ html[data-theme="dark"] .status-badge--rejected {
   }
   .hero-section__text {
     padding: 20px 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .site-header__inner {
+    width: calc(100% - 24px);
+    gap: 8px;
+  }
+
+  .brand-mark {
+    width: 60px;
+    height: 20px;
+    flex-basis: 60px;
+  }
+
+  .brand-copy .brand-tagline {
+    font-size: 7px;
+    letter-spacing: 0.2px;
   }
 }
 
@@ -3306,11 +3414,15 @@ html[data-theme="dark"] :is(.site-header, .mobile-nav) {
   border-color: var(--border-hairline);
 }
 
-html[data-theme="dark"] :is(.brand-copy strong, .brand-copy .brand-act) {
+html[data-theme="dark"] .brand-copy .brand-name {
   color: #f1f5f9;
 }
 
-html[data-theme="dark"] .brand-copy small {
+html[data-theme="dark"] .brand-copy .brand-act {
+  color: #ff7770;
+}
+
+html[data-theme="dark"] .brand-copy .brand-tagline {
   color: #a5b4c7;
 }
 
@@ -3490,6 +3602,22 @@ html[data-theme="dark"] :is(.project-card:hover, .detail-card, .taxonomy-card, .
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .route-page {
+    animation: none;
+  }
+
+  .route-progress,
+  .route-progress span {
+    animation: none;
+    transition: none;
+  }
+
+  .route-progress.is-active span {
+    animation: none;
+    width: 100%;
+    transform: none;
+  }
+
   .hero-carousel__slide,
   .hero-section__text,
   .hero-metric-card,

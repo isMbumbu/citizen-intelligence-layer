@@ -8,7 +8,7 @@ export function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
     <Link href="/" className={`brand ${inverse ? "brand--inverse" : ""}`} aria-label="CIVICACT home">
       <span className="brand-mark" aria-hidden="true" />
-      <span className="brand-copy"><strong>CIVIC</strong><strong className="brand-act">ACT</strong><small>Kenya Public Intelligence</small></span>
+      <span className="brand-copy"><strong className="brand-name"><span>CIVIC</span><span className="brand-act">ACT</span></strong><small className="brand-tagline">Kenya Public Intelligence</small></span>
     </Link>
   );
 }
