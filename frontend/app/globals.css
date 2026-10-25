@@ -116,6 +116,13 @@ textarea:focus-visible {
   margin: 0 auto;
 }
 
+.content-wrap,
+.explorer-container,
+.explorer-layout > *,
+.explorer-results {
+  min-width: 0;
+}
+
 /* ==========================================================================
    TOP BAR CONTRACT: [Brand Wordmark] — [Nav Links] — [Primary Action]
    ========================================================================== */
@@ -410,6 +417,82 @@ textarea:focus-visible {
 
 .mobile-nav {
   display: none;
+}
+
+@media (min-width: 1241px) and (max-width: 1340px) {
+  .site-header__inner {
+    gap: 16px;
+  }
+
+  .primary-nav__link {
+    padding-inline: 10px;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 1240px) {
+  .primary-nav {
+    display: none;
+  }
+
+  .menu-button {
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 9px;
+  }
+
+  .mobile-nav {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 80px);
+    overflow-y: auto;
+    padding: 16px 24px;
+    background: #ffffff;
+    border-top: 1px solid var(--border-hairline);
+  }
+
+  .mobile-nav__link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    border: 1px solid transparent;
+    border-bottom-color: #f1f5f9;
+    border-radius: 8px;
+    transition: color 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
+  }
+
+  .mobile-nav__link:hover,
+  .mobile-nav__link.is-active {
+    color: #075b43;
+    background: #eaf5ef;
+    border-color: #cce5d7;
+  }
+
+  .mobile-nav__link svg {
+    color: #7b899b;
+  }
+
+  .mobile-nav__link:hover svg,
+  .mobile-nav__link.is-active svg {
+    color: var(--brand-green);
+  }
+
+  .mobile-nav__footer {
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
 }
 
 /* ==========================================================================
@@ -3179,7 +3262,10 @@ html[data-theme="dark"] .status-badge--rejected {
     display: none;
   }
   .menu-button {
-    display: block;
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
   }
   .mobile-nav {
     display: flex;
@@ -3219,6 +3305,11 @@ html[data-theme="dark"] .status-badge--rejected {
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  .header-actions .theme-toggle,
+  .header-actions .header-search {
+    width: 44px;
+    height: 44px;
   }
   .explorer-layout {
     grid-template-columns: 1fr;
@@ -3334,9 +3425,29 @@ html[data-theme="dark"] .status-badge--rejected {
   }
   .hero-search-bar button {
     width: 100%;
+    min-height: 44px;
   }
   .hero-section__text {
     padding: 20px 0;
+  }
+  .search-strip {
+    flex-direction: column;
+  }
+  .search-box {
+    width: 100%;
+    min-height: 46px;
+  }
+  .search-box > .button {
+    min-height: 40px;
+  }
+  .mobile-filters-trigger {
+    min-height: 44px;
+    justify-content: center;
+  }
+  .section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 }
 
@@ -3958,6 +4069,15 @@ html[data-theme="dark"] :is(.action-card select, .action-card textarea, .action-
   color: #dce6f2;
   background: #172437;
   border-color: #304158;
+}
+
+html[data-theme="dark"] .search-box input {
+  color: #e6edf6;
+}
+
+html[data-theme="dark"] :is(input, textarea)::placeholder {
+  color: #94a3b8;
+  opacity: 1;
 }
 
 html[data-theme="dark"] :is(.empty-state strong, .error-state strong, .section-heading h2, .detail-section h2, .aside-card h2) {
